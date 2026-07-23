@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#00BFFF" />
 <link rel="manifest" href="manifest.json" />
-<title>T&amp;M · School Orientation</title>
+<title>T&amp;M · School Enrollment</title>
 <style>
   :root{
     --blue:#00BFFF; --navy:#0D3B4A; --pink:#E5006D;
@@ -193,9 +193,9 @@
   <!-- HEADER CONTEXT -->
   <div class="card">
     <div class="sec-title"><span class="tag">Visit</span> Who &amp; where</div>
-    <label>Partner <span class="req">*</span></label>
+    <label>Select Partner <span class="req">*</span></label>
     <select id="partner"><option value="">Select…</option></select>
-    <label>School <span class="req">*</span></label>
+    <label>Select School <span class="req">*</span></label>
     <select id="school"><option value="">Select partner first…</option></select>
     <div class="hint" id="schoolHint">Schools load from the Schools_List tab and filter by partner.</div>
     <label>School Code</label>
@@ -208,99 +208,74 @@
 
   <!-- SECTION A -->
   <div class="card">
-    <div class="sec-title"><span class="tag">A</span> Location &amp; classification</div>
-    <label>Place (Mandal + Village) <span class="req">*</span></label>
-    <input id="a1" placeholder="e.g. Kosgi Mandal, Baharpet Village" />
-    <label>Distance from district HQ (km) <span class="req">*</span></label>
-    <input id="a2" type="number" min="0" max="500" inputmode="numeric" />
-    <label>Gender type <span class="req">*</span></label>
-    <select id="a3"><option value="">Select…</option><option>Girls</option><option>Boys</option><option>Co-Ed</option></select>
-    <label>School type <span class="req">*</span></label>
-    <select id="a4"><option value="">Select…</option>
-      <option>Govt HS</option><option>KGBV</option><option>Social Welfare Residential</option>
-      <option>Govt Girls HS</option><option>PM SHRI</option><option>Tribal Welfare Residential</option><option>Other</option></select>
-    <label>Medium of instruction <span class="req">*</span></label>
-    <select id="a5"><option value="">Select…</option>
-      <option>Telugu</option><option>English</option><option>Urdu</option><option>Hindi</option><option>Bilingual</option></select>
-    <label>Programme year <span class="req">*</span></label>
-    <select id="a6"><option value="">Select…</option><option>Year 1</option><option>Year 2</option><option>Year 3</option></select>
+    <div class="sec-title"><span class="tag">A</span> School Location</div>
+    <label>Enter School Location <span class="req">*</span></label>
+    <input id="a1" />
+    <label>Enter District <span class="req">*</span></label>
+    <input id="a2" />
+    <label>What's the distance from district to IIF (in km)? <span class="req">*</span></label>
+    <input id="adist" type="number" min="0" inputmode="numeric" />
   </div>
 
   <!-- SECTION B -->
   <div class="card">
-    <div class="sec-title"><span class="tag">B</span> Principal &amp; teacher</div>
-    <label>Principal — full name <span class="req">*</span></label>
+    <div class="sec-title"><span class="tag">B</span> Principal details</div>
+    <label>Enter Principal — full name <span class="req">*</span></label>
     <input id="b1" />
-    <label>Principal — phone <span class="req">*</span></label>
+    <label>Enter Principal — phone <span class="req">*</span></label>
     <input id="b2" type="tel" inputmode="numeric" placeholder="10-digit mobile" />
     <div class="err-msg" id="b2e">Enter a valid 10-digit Indian mobile.</div>
-    <label>Principal — email</label>
+    <label>Enter Principal — email</label>
     <input id="b3" type="email" placeholder="optional" />
-    <label>Assigned teacher — full name <span class="req">*</span></label>
-    <input id="b4" />
-    <label>Assigned teacher — phone <span class="req">*</span></label>
-    <input id="b5" type="tel" inputmode="numeric" placeholder="10-digit mobile" />
-    <div class="err-msg" id="b5e">Enter a valid 10-digit Indian mobile.</div>
-    <label>Assigned teacher — email</label>
-    <input id="b6" type="email" placeholder="optional" />
-    <label>Assigned teacher — subject taught <span class="req">*</span></label>
-    <input id="b7" placeholder="e.g. Science, Maths" />
   </div>
 
-  <!-- SECTION C (dynamic) -->
+  <!-- SECTION C -->
   <div class="card">
-    <div class="sec-title"><span class="tag">C</span> Enrollment &amp; teams</div>
-    <label>Grades in programme at this school <span class="req">*</span></label>
-    <div class="chips" id="grades">
-      <div class="chip" data-g="6">Grade 6</div>
-      <div class="chip" data-g="7">Grade 7</div>
-      <div class="chip" data-g="8">Grade 8</div>
+    <div class="sec-title"><span class="tag">C</span> School program profile</div>
+    <label>Select Gender type <span class="req">*</span></label>
+    <select id="a3"><option value="">Select…</option><option>Girls</option><option>Boys</option><option>Co-Ed</option></select>
+    <label>Select School type <span class="req">*</span></label>
+    <select id="a4"><option value="">Select…</option>
+      <option>Govt HS</option><option>KGBV</option><option>Social Welfare Residential</option>
+      <option>Govt Girls HS</option><option>PM SHRI</option><option>Tribal Welfare Residential</option><option>Other</option></select>
+    <label>Select Medium of instruction <span class="req">*</span></label>
+    <select id="a5"><option value="">Select…</option>
+      <option>Telugu</option><option>English</option><option>Urdu</option><option>Hindi</option><option>Bilingual</option></select>
+    <label>Select Year of program <span class="req">*</span></label>
+    <select id="a6"><option value="">Select…</option><option>Year 1</option><option>Year 2</option><option>Year 3</option></select>
+    <label>Select the grades participating in this program from this school <span class="req">*</span></label>
+    <div class="chips" id="aGrades">
+      <div class="chip" data-ag="6">Grade 6</div>
+      <div class="chip" data-ag="7">Grade 7</div>
+      <div class="chip" data-ag="8">Grade 8</div>
+      <div class="chip" data-ag="9">Grade 9</div>
     </div>
-    <div id="gradeBlocks"></div>
+    <div id="aGradeBlocks"></div>
+    <label>All grades together, how many sections do we have from this school? <span class="req">*</span></label>
+    <input id="aSections" readonly placeholder="auto-calculated" style="background:var(--pastel)" />
   </div>
 
   <!-- SECTION D -->
   <div class="card">
-    <div class="sec-title"><span class="tag">D</span> Infrastructure</div>
-    <label>Lab / activity room available <span class="req">*</span></label>
+    <div class="sec-title"><span class="tag">D</span> School Infrastructure</div>
+    <label>Does the school have Lab / activity room available? <span class="req">*</span></label>
     <div class="yn" data-yn="d1"><button data-v="Yes">Yes</button><button data-v="No">No</button></div>
-    <label>Internet at school <span class="req">*</span></label>
-    <select id="d2"><option value="">Select…</option><option>None</option><option>Mobile data only</option><option>WiFi available</option></select>
-    <label>Smart board / projector <span class="req">*</span></label>
-    <div class="yn" data-yn="d3"><button data-v="Yes">Yes</button><button data-v="No">No</button></div>
-    <label>Storage space for MM Kit <span class="req">*</span></label>
+    <label>Does the school have Internet? <span class="req">*</span></label>
+    <select id="d2"><option value="">Select…</option><option>None</option><option>Mobile data only</option><option>WiFi available</option><option>No</option><option>Yes - not working</option></select>
+    <label>Does the school have Smart board / projector? <span class="req">*</span></label>
+    <div class="yn" data-yn="d3"><button data-v="Yes">Yes</button><button data-v="No">No</button><button data-v="Yes but not working">Yes but not working</button></div>
+    <label>Does the school have Storage space for MM Kit? <span class="req">*</span></label>
     <div class="yn" data-yn="d4"><button data-v="Yes">Yes</button><button data-v="No">No</button></div>
   </div>
 
-  <!-- SECTION E -->
-  <div class="card">
-    <div class="sec-title"><span class="tag">E</span> Session schedule</div>
-    <label>Preferred session day <span class="req">*</span></label>
-    <div class="chips" id="e1">
-      <div class="chip" data-d="Mon">Mon</div><div class="chip" data-d="Tue">Tue</div>
-      <div class="chip" data-d="Wed">Wed</div><div class="chip" data-d="Thu">Thu</div>
-      <div class="chip" data-d="Fri">Fri</div><div class="chip" data-d="Sat">Sat</div>
-    </div>
-    <label>Preferred time slot <span class="req">*</span></label>
-    <select id="e2"><option value="">Select…</option><option>Morning Half</option><option>Second Half</option><option>Last Period</option><option>Specific Time</option></select>
-    <label>Blackout dates / exam periods</label>
-    <textarea id="e3" placeholder="e.g. Sep 15–25 quarterly exams, Oct 4 festival"></textarea>
-  </div>
-
-  <!-- SECTION G -->
-  <div class="card">
-    <div class="sec-title"><span class="tag">G</span> IIF assignment</div>
-    <label>IIF POC of the school <span class="req">*</span></label>
-    <input id="g1" placeholder="IIF point of contact name" />
-  </div>
 
   <!-- SECTION H -->
   <div class="card">
-    <div class="sec-title"><span class="tag">H</span> Photos &amp; location</div>
-    <label>School photo</label>
+    <div class="sec-title"><span class="tag">H</span> Photos &amp; Gmaps</div>
+    <label>Upload School photo</label>
     <input id="h1" type="file" accept="image/*" capture="environment" />
     <div class="hint">Optional. Uploaded to Drive; a clickable link is saved in the sheet.</div>
-    <label>Google Maps location <span class="req">*</span></label>
+    <label>Share School Google Maps location <span class="req">*</span></label>
     <div class="row2">
       <button class="copybtn" id="gpsBtn" style="width:100%">📍 Use my GPS</button>
       <input id="h3" placeholder="or paste maps URL" />
@@ -797,7 +772,7 @@ const DRAFT_KEY = 'tm_form1_draft';
 const QUEUE_KEY = 'tm_form1_queue';
 
 const $ = (id) => document.getElementById(id);
-const state = { grades: [], perGrade: {}, yn: {}, e1: [], gps: '' };
+const state = { grades: [], perGrade: {}, yn: {}, e1: [], aGrades: [], aGradeData: {}, gps: '' };
 
 /* ---------- Section C dynamic rendering ---------- */
 document.querySelectorAll('#grades .chip').forEach(chip => {
@@ -908,6 +883,51 @@ document.querySelectorAll('#e1 .chip').forEach(chip=>{
   };
 });
 
+/* ---------- aGrades chips ---------- */
+document.querySelectorAll('#aGrades .chip').forEach(chip=>{
+  chip.onclick=()=>{
+    chip.classList.toggle('on');
+    const g=chip.dataset.ag;
+    if(chip.classList.contains('on')){
+      state.aGrades.push(g);
+      state.aGradeData[g]=state.aGradeData[g]||{students:'',sections:''};
+    } else {
+      state.aGrades=state.aGrades.filter(x=>x!==g);
+      delete state.aGradeData[g];
+    }
+    renderAGrades();
+    updateBar();
+  };
+});
+
+function renderAGrades(){
+  const container=$('aGradeBlocks');
+  if(!container) return;
+  container.innerHTML=state.aGrades.slice().sort((a,b)=>Number(a)-Number(b)).map(g=>`
+    <div style="margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:10px">
+      <strong style="color:var(--navy)">Grade ${g}</strong>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
+        <div>
+          <label style="font-size:13px">Total students</label>
+          <input type="number" min="0" inputmode="numeric" id="ag_stu_${g}"
+            value="${(state.aGradeData[g]||{}).students||''}"
+            oninput="state.aGradeData['${g}']={...(state.aGradeData['${g}']||{}),students:this.value};updateBar();">
+        </div>
+        <div>
+          <label style="font-size:13px">Total sections</label>
+          <input type="number" min="1" max="9" inputmode="numeric" id="ag_sec_${g}"
+            value="${(state.aGradeData[g]||{}).sections||''}"
+            oninput="state.aGradeData['${g}']={...(state.aGradeData['${g}']||{}),sections:this.value};recalcSections();updateBar();">
+        </div>
+      </div>
+    </div>`).join('');
+  recalcSections();
+}
+function recalcSections(){
+  const total=state.aGrades.reduce((s,g)=>s+Number((state.aGradeData[g]||{}).sections||0),0);
+  $('aSections').value=total>0?total:'';
+}
+
 /* ---------- GPS ---------- */
 $('gpsBtn').onclick = (ev) => {
   ev.preventDefault();
@@ -924,7 +944,7 @@ $('gpsBtn').onclick = (ev) => {
 
 /* ---------- phone validation ---------- */
 const phoneOk = v => /^[6-9][0-9]{9}$/.test(v);
-['b2','b5'].forEach(id=>{
+['b2'].forEach(id=>{
   $(id).oninput = () => {
     const v=$(id).value.trim();
     $(id+'e').classList.toggle('show', v.length>0 && !phoneOk(v));
@@ -937,10 +957,10 @@ $('visitDate').max = new Date().toISOString().slice(0,10);
 
 /* ---------- progress bar ---------- */
 function updateBar(){
-  const reqIds=['partner','school','visitedBy','visitDate','a1','a2','a3','a4','a5','a6','b1','b2','b4','b5','b7','d2','e2','g1','h3'];
+  const reqIds=['partner','school','visitedBy','visitDate','a1','a2','adist','a3','a4','a5','a6','b1','b2','d2','h3'];
   let filled=reqIds.filter(id=>$(id)&&$(id).value.trim()).length;
   filled += ['d1','d3','d4','i3'].filter(k=>state.yn[k]).length;
-  filled += state.grades.length?1:0;
+  filled += state.aGrades.length?1:0;
   const total=reqIds.length+4+1;
   $('bar').style.width=Math.round(filled/total*100)+'%';
 }
@@ -949,26 +969,14 @@ document.addEventListener('click',()=>setTimeout(updateBar,0));
 
 /* ---------- collect payload ---------- */
 function collect(){
-  const perGrade={};
-  state.grades.forEach(g=>{
-    perGrade[g]={sections:state.perGrade[g].sections,
-      perSection:state.perGrade[g].perSection.map(s=>({
-        name:s.name, total:(s.total||'').toString(),
-        sls:Number(s.sls)||0, clusters:Number(s.clusters)||0, teams:Number(s.teams)||0,
-        schedDay:s.schedDay||'', schedTime:s.schedTime||''
-      }))};
-  });
   return {
     formId:'form1_school_orientation', formVersion:'1.0',
-    submissionId:uuid(), submittedAt:new Date().toISOString(), token:getCfg().token,
+    submissionId:uuid(), submittedAt:new Date().toISOString(), submittedBy:(getSession()||{}).name||'', token:getCfg().token,
     header:{partner:$('partner').value,school:$('school').value,schoolCode:$('schoolCode').value.trim().toUpperCase(),
       visitedBy:$('visitedBy').value,visitDate:$('visitDate').value},
-    sectionA:{a1:$('a1').value,a2:$('a2').value,a3:$('a3').value,a4:$('a4').value,a5:$('a5').value,a6:$('a6').value},
-    sectionB:{b1:$('b1').value,b2:$('b2').value,b3:$('b3').value,b4:$('b4').value,b5:$('b5').value,b6:$('b6').value,b7:$('b7').value},
-    sectionC:{grades:state.grades.map(Number),perGrade},
+    sectionA:{a1:$('a1').value,a2:$('a2').value,adist:$('adist').value,a3:$('a3').value,a4:$('a4').value,a5:$('a5').value,a6:$('a6').value,aGrades:state.aGrades.join(','),aSections:$('aSections').value,aGradeData:state.aGradeData},
+    sectionB:{b1:$('b1').value,b2:$('b2').value,b3:$('b3').value},
     sectionD:{d1:state.yn.d1||'',d2:$('d2').value,d3:state.yn.d3||'',d4:state.yn.d4||''},
-    sectionE:{e1:state.e1,e2:$('e2').value,e3:$('e3').value},
-    sectionG:{fieldLead:$('g1').value},
     sectionH:{schoolPhoto:PHOTOS.h1, mapsLink:$('h3').value},
     sectionI:{i1:$('i1').value,i2:$('i2').value,i3:state.yn.i3||''}
   };
@@ -1000,14 +1008,13 @@ function uuid(){return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=
 /* ---------- validate ---------- */
 function validate(){
   const need=[['partner','Partner'],['school','School'],['visitedBy','Visited by'],
-    ['a1','Place'],['a2','Distance'],['a3','Gender'],['a4','School type'],['a5','Medium'],['a6','Programme year'],
-    ['b1','Principal name'],['b4','Teacher name'],['b7','Teacher subject'],['d2','Internet'],['e2','Time slot'],['g1','IIF POC'],['h3','Maps location']];
+    ['a1','Place'],['a2','District'],['adist','Distance to IIF'],['a3','Gender'],['a4','School type'],['a5','Medium'],['a6','Programme year'],
+    ['b1','Principal name'],['d2','Internet'],['h3','Maps location']];
   for(const [id,name] of need){ if(!$(id).value.trim()) return name+' is required.'; }
+  if(!state.aGrades.length) return 'Select at least one grade (Section A).';
+  for(const g of state.aGrades){ if(!((state.aGradeData[g]||{}).sections)) return `Enter sections for Grade ${g}.`; }
   if(!phoneOk($('b2').value.trim())) return 'Valid principal phone required.';
-  if(!phoneOk($('b5').value.trim())) return 'Valid teacher phone required.';
-  if(!state.grades.length) return 'Select at least one grade.';
   for(const k of ['d1','d3','d4','i3']) if(!state.yn[k]) return 'Answer all Yes/No questions.';
-  if(!state.e1.length) return 'Select at least one preferred day.';
   return null;
 }
 
@@ -1065,8 +1072,8 @@ function updateQueueBanner(){
 $('draftBtn').onclick=()=>{localStorage.setItem(DRAFT_KEY,JSON.stringify(snapshot()));toast('Draft saved ✓');};
 function snapshot(){
   const s={state:JSON.parse(JSON.stringify(state)),fields:{}};
-  ['partner','school','schoolCode','visitedBy','visitDate','a1','a2','a3','a4','a5','a6',
-   'b1','b2','b3','b4','b5','b6','b7','d2','e2','e3','g1','h3','i1','i2'].forEach(id=>s.fields[id]=$(id).value);
+  ['partner','school','schoolCode','visitedBy','visitDate','a1','a2','adist','a3','a4','a5','a6','aSections',
+   'b1','b2','b3','d2','h3','i1','i2'].forEach(id=>s.fields[id]=$(id).value);
   return s;
 }
 function restoreDraft(){
@@ -1076,11 +1083,10 @@ function restoreDraft(){
   Object.assign(state,s.state);
   Object.keys(s.fields).forEach(id=>{if($(id))$(id).value=s.fields[id];});
   // rebuild chips/yn UI
-  document.querySelectorAll('#grades .chip').forEach(c=>c.classList.toggle('on',state.grades.includes(c.dataset.g)));
-  document.querySelectorAll('#e1 .chip').forEach(c=>c.classList.toggle('on',state.e1.includes(c.dataset.d)));
+  document.querySelectorAll('#aGrades .chip').forEach(c=>c.classList.toggle('on',state.aGrades.includes(c.dataset.ag)));
+  renderAGrades();
   document.querySelectorAll('[data-yn]').forEach(grp=>{const v=state.yn[grp.dataset.yn];
     grp.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));});
-  renderGrades();
   // school dropdown: rebuild options for the restored partner, then set value
   refreshSchoolOptions();
   if(s.fields.school){ $('school').value=s.fields.school; $('schoolCode').value=s.fields.schoolCode||''; }
@@ -1238,7 +1244,7 @@ function hideAllScreens(){
 }
 
 const MENU_ITEMS = [
-  { id:'form1', title:'Form 1 · Orientation Data',       perm:'form1',      icon:'📋' },
+  { id:'form1', title:'Form 1 · School Enrollment Data',       perm:'form1',      icon:'📋' },
   { id:'form2', title:'Form 2 · Student Data',           perm:'form2',      icon:'👥' },
   { id:'form3', title:'Form 3 · SL Selection',           perm:'form3',      icon:'⭐' },
   { id:'form4', title:'Form 4 · Assessment Data',        perm:'form4',      icon:'📊' },
@@ -1270,7 +1276,7 @@ function showScreen(which){
     $('home').style.display='block'; $('hdrTitle').textContent='THINK & MAKE 2026-27'; updateQueueBanner();
   } else if(which==='form1'){
     $('app').style.display='block'; $('footer1').style.display='flex';
-    $('hdrTitle').textContent='School Orientation — Form 1'; refreshSchoolOptions(); updateBar();
+    $('hdrTitle').textContent='School Enrollment — Form 1'; refreshSchoolOptions(); updateBar();
   } else if(which==='form2'){
     $('app2').style.display='block'; $('footer2').style.display='flex';
     $('hdrTitle').textContent='Student Data — Form 2'; refreshF2Schools();
@@ -1344,7 +1350,7 @@ function showSchoolMenu(){
   const btnStyle='display:block;width:100%;text-align:left;margin-bottom:12px;padding:18px 16px;'
     +'border-radius:14px;border:1px solid var(--line);font-size:16px;font-weight:700;cursor:pointer;background:#fff;color:var(--navy)';
   const FORMS=[
-    {key:'form1', tag:'Form 1', title:'School Orientation',  dataKey:'form1_school_orientation'},
+    {key:'form1', tag:'Form 1', title:'School Enrollment',  dataKey:'form1_school_orientation'},
     {key:'form2', tag:'Form 2', title:'Student Data',        dataKey:'form2_student_data'},
     {key:'form3', tag:'Form 3', title:'SL Selection',        dataKey:'form3_sl_selection'},
     {key:'form4', tag:'Form 4', title:'Assessment Data',     dataKey:'form4_assessment_data'},
@@ -1370,8 +1376,8 @@ function showSchoolFormDetail(which){
         d3=sdData['form3_sl_selection'], d4=sdData['form4_assessment_data'];
   let html='', title='';
   if(which==='form1'){
-    title='Form 1 · School Orientation';
-    html='<div class="card"><div class="sec-title"><span class="tag">Form 1</span> School Orientation</div>';
+    title='Form 1 · School Enrollment';
+    html='<div class="card"><div class="sec-title"><span class="tag">Form 1</span> School Enrollment</div>';
     if(d1){
       html+=`<table class="dash-table">
         <tr><td><b>Partner</b></td><td>${d1['Partner']||'—'}</td></tr>

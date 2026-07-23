@@ -15,21 +15,16 @@ var SESSION_DAYS = 30;
 // -------- Column definitions per form --------
 var FORM_SCHEMAS = {
   form1_school_orientation: {
-    tabName: 'Form1_SchoolOrientation',
+    tabName: 'School Enrollment — Form 1',
     columns: [
       'Submission ID', 'Submitted At', 'Form Version', 'Status',
       'Partner', 'School', 'School Code', 'Visited By', 'Visit Date',
-      'Place (Mandal+Village)', 'Distance from HQ (km)', 'Gender Type',
-      'School Type', 'Medium', 'Programme Year',
+      'School Location', 'District', 'Distance to IIF (km)',
+      'Gender Type', 'School Type', 'Medium', 'Programme Year',
+      'Grades', 'Total Sections', 'Grade Data',
       'Principal Name', 'Principal Phone', 'Principal Email',
-      'Teacher Name', 'Teacher Phone', 'Teacher Email', 'Teacher Subject',
-      'Grades', 'Total Sections', 'Est. Students (sum)',
-      'Total Girls', 'Total Boys', 'Total SLs', 'Total Teams',
-      'Enrollment Detail (JSON)',
       'Lab Room', 'Internet', 'Smart Board', 'Kit Storage',
-      'Preferred Day', 'Time Slot', 'Blackout Dates',
-      'Field Lead',
-      'School Photo URL', 'Classroom Photo URL', 'Maps Link',
+      'School Photo URL', 'Maps Link',
       'Observations', 'Next Steps', 'Principal Acknowledged'
     ]
   },
@@ -502,13 +497,14 @@ function uploadPhotos(payload, ss, partner, partnerSS) {
     try {
       var blob = Utilities.newBlob(Utilities.base64Decode(photoObj.data), photoObj.mime || 'image/jpeg', fileName);
       var file = folder.createFile(blob);
-      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(e2) {}
       return file.getUrl();
     } catch(e) { return null; }
   }
 
   if (payload.formId === 'form1_school_orientation') {
-    var url = upload(payload.sectionH && payload.sectionH.schoolPhoto, 'school_' + payload.submissionId + '.jpg');
+    var schoolName = ((payload.header || {}).school || 'school').replace(/[^a-zA-Z0-9]/g, '_');
+    var url = upload(payload.sectionH && payload.sectionH.schoolPhoto, schoolName + '_photo.jpg');
     if (url) updatePhotoUrl(targetSS, FORM_SCHEMAS[payload.formId], payload.submissionId, 'School Photo URL', url);
   }
   if (payload.formId === 'form2_student_data') {
@@ -637,26 +633,20 @@ function buildRow(p, schema) {
 }
 
 function buildRowForm1(p) {
-  var h=p.header||{}, a=p.sectionA||{}, b=p.sectionB||{}, c=p.sectionC||{},
-      d=p.sectionD||{}, eSec=p.sectionE||{}, g=p.sectionG||{}, hh=p.sectionH||{}, i=p.sectionI||{};
-  var totals=tallyEnrollment(c), grades=(c.grades||[]).join(', ');
+  var h=p.header||{}, a=p.sectionA||{}, b=p.sectionB||{},
+      d=p.sectionD||{}, hh=p.sectionH||{}, i=p.sectionI||{};
   return {
     'Submission ID':p.submissionId||'','Submitted At':p.submittedAt||new Date().toISOString(),
     'Form Version':p.formVersion||'','Status':p.isEdit?'edited':'active',
     'Partner':h.partner||'','School':h.school||'','School Code':h.schoolCode||'',
     'Visited By':h.visitedBy||'','Visit Date':h.visitDate||'',
-    'Place (Mandal+Village)':a.a1||'','Distance from HQ (km)':a.a2||'',
+    'School Location':a.a1||'','District':a.a2||'','Distance to IIF (km)':a.adist||'',
     'Gender Type':a.a3||'','School Type':a.a4||'','Medium':a.a5||'','Programme Year':a.a6||'',
+    'Grades':a.aGrades||'','Total Sections':a.aSections||'',
+    'Grade Data': Object.keys(a.aGradeData||{}).sort(function(x,y){return Number(x)-Number(y);}).map(function(g){var d=(a.aGradeData||{})[g]||{};return 'Grade '+g+': '+(d.students||0)+' students, '+(d.sections||0)+' sections';}).join('\n'),
     'Principal Name':b.b1||'','Principal Phone':b.b2||'','Principal Email':b.b3||'',
-    'Teacher Name':b.b4||'','Teacher Phone':b.b5||'','Teacher Email':b.b6||'','Teacher Subject':b.b7||'',
-    'Grades':grades,'Total Sections':totals.sections,'Est. Students (sum)':totals.students,
-    'Total Girls':totals.girls,'Total Boys':totals.boys,'Total SLs':totals.sls,'Total Teams':totals.teams,
-    'Enrollment Detail (JSON)':JSON.stringify(c.perGrade||{}),
     'Lab Room':d.d1||'','Internet':d.d2||'','Smart Board':d.d3||'','Kit Storage':d.d4||'',
-    'Preferred Day':(eSec.e1||[]).join?eSec.e1.join(', '):(eSec.e1||''),
-    'Time Slot':eSec.e2||'','Blackout Dates':eSec.e3||'',
-    'Field Lead':g.fieldLead||'',
-    'School Photo URL':'','Classroom Photo URL':'','Maps Link':hh.mapsLink||'',
+    'School Photo URL':'','Maps Link':hh.mapsLink||'',
     'Observations':i.i1||'','Next Steps':i.i2||'','Principal Acknowledged':i.i3||''
   };
 }

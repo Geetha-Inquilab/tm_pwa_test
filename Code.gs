@@ -17,7 +17,7 @@ var FORM_SCHEMAS = {
   form1_school_orientation: {
     tabName: 'School Enrollment — Form 1',
     columns: [
-      'Submission ID', 'Submitted At', 'Form Version', 'Status',
+      'Submission ID', 'Submitted At', 'Submitted By', 'Form Version', 'Status',
       'Partner', 'School', 'School Code', 'Visited By', 'Visit Date',
       'School Location', 'District', 'Distance to IIF (km)',
       'Gender Type', 'School Type', 'Medium', 'Programme Year',
@@ -637,7 +637,7 @@ function buildRowForm1(p) {
       d=p.sectionD||{}, hh=p.sectionH||{}, i=p.sectionI||{};
   return {
     'Submission ID':p.submissionId||'','Submitted At':p.submittedAt||new Date().toISOString(),
-    'Form Version':p.formVersion||'','Status':p.isEdit?'edited':'active',
+    'Submitted By':p.submittedBy||'','Form Version':p.formVersion||'','Status':p.isEdit?'edited':'active',
     'Partner':h.partner||'','School':h.school||'','School Code':h.schoolCode||'',
     'Visited By':h.visitedBy||'','Visit Date':h.visitDate||'',
     'School Location':a.a1||'','District':a.a2||'','Distance to IIF (km)':a.adist||'',

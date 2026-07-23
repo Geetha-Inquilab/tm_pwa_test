@@ -971,7 +971,7 @@ document.addEventListener('click',()=>setTimeout(updateBar,0));
 function collect(){
   return {
     formId:'form1_school_orientation', formVersion:'1.0',
-    submissionId:uuid(), submittedAt:new Date().toISOString(), token:getCfg().token,
+    submissionId:uuid(), submittedAt:new Date().toISOString(), submittedBy:(getSession()||{}).name||'', token:getCfg().token,
     header:{partner:$('partner').value,school:$('school').value,schoolCode:$('schoolCode').value.trim().toUpperCase(),
       visitedBy:$('visitedBy').value,visitDate:$('visitDate').value},
     sectionA:{a1:$('a1').value,a2:$('a2').value,adist:$('adist').value,a3:$('a3').value,a4:$('a4').value,a5:$('a5').value,a6:$('a6').value,aGrades:state.aGrades.join(','),aSections:$('aSections').value,aGradeData:state.aGradeData},

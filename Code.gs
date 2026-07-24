@@ -28,24 +28,34 @@ var FORM_SCHEMAS = {
       'Observations', 'Next Steps', 'Principal Acknowledged'
     ]
   },
-  form2_student_data: {
-    tabName: 'Form2_StudentData',
+  form2_schools_contact: {
+    tabName: 'Schools Contact Info — Form 2',
+    columns: [
+      'Submission ID', 'Submitted At', 'Submitted By', 'Form Version', 'Status',
+      'Partner', 'School', 'School Code',
+      'Maps Link', 'Principal Name', 'Principal Phone', 'Grades',
+      'Teachers',
+      'IIF PoC', 'Session Schedule'
+    ]
+  },
+  form3_student_data: {
+    tabName: 'Form3_StudentData',
     columns: [
       'Submission ID', 'Submitted At', 'Form Version', 'Status',
       'Partner', 'School', 'School Code', 'Grade', 'Section',
       'Total Students', 'Photo URL', 'Photo2 URL'
     ]
   },
-  form3_sl_selection: {
-    tabName: 'Form3_SLSelection',
+  form4_sl_selection: {
+    tabName: 'Form4_SLSelection',
     columns: [
       'Submission ID', 'Submitted At', 'Form Version', 'Status',
       'Partner', 'School', 'School Code', 'Grade', 'Section', 'Teacher',
       'Teacher Acknowledged', 'SL Count', 'SLs (JSON)'
     ]
   },
-  form4_assessment_data: {
-    tabName: 'Form4_AssessmentData',
+  form5_assessment_data: {
+    tabName: 'Form5_AssessmentData',
     columns: [
       'Submission ID', 'Submitted At', 'Form Version', 'Status',
       'Partner', 'School', 'School Code', 'Grade', 'Section',
@@ -322,7 +332,7 @@ function handleSchoolData(p) {
   var partnerName = getPartnerForSchool(ss, schoolCode);
   var targetSS = partnerName ? getOrCreatePartnerSheet(partnerName, ss) : ss;
   var result = {};
-  var formKeys = ['form1_school_orientation','form2_student_data','form3_sl_selection','form4_assessment_data'];
+  var formKeys = ['form1_school_orientation','form2_schools_contact','form3_student_data','form4_sl_selection','form5_assessment_data'];
   formKeys.forEach(function(fk) {
     var schema = FORM_SCHEMAS[fk];
     if (!schema) return;
@@ -355,7 +365,7 @@ function handleAllSchoolStatus(p) {
   if (!schoolsSheet) return json({ status: 'ok', schools: [] });
   var schoolData = schoolsSheet.getDataRange().getValues();
 
-  var formKeys = ['form1_school_orientation','form2_student_data','form3_sl_selection','form4_assessment_data'];
+  var formKeys = ['form1_school_orientation','form2_schools_contact','form3_student_data','form4_sl_selection','form5_assessment_data'];
   var submitted = {};
   formKeys.forEach(function(fk) { submitted[fk] = {}; });
 
@@ -507,9 +517,9 @@ function uploadPhotos(payload, ss, partner, partnerSS) {
     var url = upload(payload.sectionH && payload.sectionH.schoolPhoto, schoolName + '_photo.jpg');
     if (url) updatePhotoUrl(targetSS, FORM_SCHEMAS[payload.formId], payload.submissionId, 'School Photo URL', url);
   }
-  if (payload.formId === 'form2_student_data') {
-    var u1 = upload(payload.photo, 'f2_' + payload.submissionId + '_1.jpg');
-    var u2 = upload(payload.photo2, 'f2_' + payload.submissionId + '_2.jpg');
+  if (payload.formId === 'form3_student_data') {
+    var u1 = upload(payload.photo, 'f3_' + payload.submissionId + '_1.jpg');
+    var u2 = upload(payload.photo2, 'f3_' + payload.submissionId + '_2.jpg');
     if (u1) updatePhotoUrl(targetSS, FORM_SCHEMAS[payload.formId], payload.submissionId, 'Photo URL', u1);
     if (u2) updatePhotoUrl(targetSS, FORM_SCHEMAS[payload.formId], payload.submissionId, 'Photo2 URL', u2);
   }
@@ -624,10 +634,11 @@ function getPartnerForSchool(ss, schoolCode) {
 
 function buildRow(p, schema) {
   var row;
-  if (p.formId === 'form1_school_orientation') row = buildRowForm1(p);
-  else if (p.formId === 'form2_student_data')  row = buildRowForm2(p);
-  else if (p.formId === 'form3_sl_selection')  row = buildRowForm3(p);
-  else if (p.formId === 'form4_assessment_data') row = buildRowForm4(p);
+  if (p.formId === 'form1_school_orientation')  row = buildRowForm1(p);
+  else if (p.formId === 'form2_schools_contact') row = buildRowForm2(p);
+  else if (p.formId === 'form3_student_data')   row = buildRowForm3(p);
+  else if (p.formId === 'form4_sl_selection')   row = buildRowForm4(p);
+  else if (p.formId === 'form5_assessment_data') row = buildRowForm5(p);
   else row = {};
   return schema.columns.map(function(col) { return row[col] !== undefined ? row[col] : ''; });
 }
@@ -655,6 +666,22 @@ function buildRowForm2(p) {
   var h=p.header||{};
   return {
     'Submission ID':p.submissionId||'','Submitted At':p.submittedAt||new Date().toISOString(),
+    'Submitted By':p.submittedBy||'','Form Version':p.formVersion||'','Status':p.isEdit?'edited':'active',
+    'Partner':h.partner||'','School':h.school||'','School Code':h.schoolCode||'',
+    'Maps Link':p.schoolLocation||'',
+    'Principal Name':p.principalName||'',
+    'Principal Phone':p.principalPhone||'',
+    'Grades':p.grades||'',
+    'Teachers':(p.teachers||[]).map(function(t,i){return 'Teacher '+(i+1)+': '+(t.name||'')+(t.phone?' - '+t.phone:'')+(t.grades?' - Grade '+t.grades:'');}).join('\n'),
+    'IIF PoC':p.poc||'',
+    'Session Schedule':p.sessionSchedule||''
+  };
+}
+
+function buildRowForm3(p) {
+  var h=p.header||{};
+  return {
+    'Submission ID':p.submissionId||'','Submitted At':p.submittedAt||new Date().toISOString(),
     'Form Version':p.formVersion||'','Status':p.isEdit?'edited':'active',
     'Partner':h.partner||'','School':h.school||'','School Code':h.schoolCode||'',
     'Grade':h.grade||'','Section':h.section||'',
@@ -662,7 +689,7 @@ function buildRowForm2(p) {
   };
 }
 
-function buildRowForm3(p) {
+function buildRowForm4(p) {
   var h=p.header||{};
   return {
     'Submission ID':p.submissionId||'','Submitted At':p.submittedAt||new Date().toISOString(),
@@ -675,7 +702,7 @@ function buildRowForm3(p) {
   };
 }
 
-function buildRowForm4(p) {
+function buildRowForm5(p) {
   var h=p.header||{}, a=p.assessment||{}, t=p.team||{};
   return {
     'Submission ID':p.submissionId||'','Submitted At':p.submittedAt||new Date().toISOString(),

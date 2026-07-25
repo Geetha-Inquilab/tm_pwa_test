@@ -15,7 +15,7 @@ var SESSION_DAYS = 30;
 // -------- Column definitions per form --------
 var FORM_SCHEMAS = {
   form1_school_orientation: {
-    tabName: 'School Enrollment — Form 1',
+    tabName: 'School_Enrollment',
     columns: [
       'Submission ID', 'Submitted At', 'Submitted By', 'Form Version', 'Status',
       'Partner', 'School', 'School Code', 'Visited By', 'Visit Date',
@@ -29,7 +29,7 @@ var FORM_SCHEMAS = {
     ]
   },
   form2_schools_contact: {
-    tabName: 'Schools Contact Info — Form 2',
+    tabName: 'Schools_Contact_Info',
     columns: [
       'Submission ID', 'Submitted At', 'Submitted By', 'Form Version', 'Status',
       'Partner', 'School', 'School Code',
@@ -456,6 +456,24 @@ function handleFormSubmit(payload) {
   var ss = getSheet();
   var partner = (payload.header || {}).partner || payload.partner || '';
   var partnerSS = getOrCreatePartnerSheet(partner, ss);
+
+  // Block duplicate submissions for school-level forms (Forms 1 & 2)
+  var duplicateGuardForms = ['form1_school_orientation', 'form2_schools_contact'];
+  if (!payload.isEdit && duplicateGuardForms.indexOf(payload.formId) !== -1) {
+    var checkSheet = partnerSS.getSheetByName(schema.tabName);
+    if (checkSheet) {
+      var checkData = checkSheet.getDataRange().getValues();
+      var checkHeader = checkData[0];
+      var chkScIdx = checkHeader.indexOf('School Code');
+      var chkStIdx = checkHeader.indexOf('Status');
+      var dupSchoolCode = ((payload.header || {}).schoolCode || '').trim().toUpperCase();
+      for (var ci = 1; ci < checkData.length; ci++) {
+        if (String(checkData[ci][chkScIdx]).trim().toUpperCase() !== dupSchoolCode) continue;
+        if (chkStIdx >= 0 && String(checkData[ci][chkStIdx]).toLowerCase() === 'superseded') continue;
+        return json({ status: 'duplicate', message: 'This form has already been submitted for this school. Contact admin to make any changes.' });
+      }
+    }
+  }
 
   // Handle edit/re-submit: mark old row as superseded
   if (payload.isEdit && payload.originalSubmissionId) {

@@ -1851,12 +1851,12 @@ function renderScheduleBlocks(grades){
   $('f2scheduleBlocks').innerHTML=grades.sort((a,b)=>Number(a)-Number(b)).map(g=>`
     <div style="margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:10px">
       <strong style="color:var(--navy)">Grade ${g}</strong>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
-        <div><label style="font-size:13px;display:block">Day</label>
+      <div style="margin-top:8px">
+        <div style="margin-bottom:8px"><label style="font-size:13px;display:block">Day <span class="req">*</span></label>
           <select id="f2sch_day_${g}"><option value="">Select…</option>${days.map(d=>`<option>${d}</option>`).join('')}</select>
         </div>
-        <div><label style="font-size:13px;display:block">Time</label>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:3px">
+        <div><label style="font-size:13px;display:block">Time <span class="req">*</span></label>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
             <select id="f2sch_hr_${g}"><option value="">Hr</option>${hours.map(h=>`<option>${h}</option>`).join('')}</select>
             <select id="f2sch_min_${g}"><option value="">Min</option>${mins.map(m=>`<option>${m}</option>`).join('')}</select>
             <select id="f2sch_ampm_${g}"><option value="">—</option><option>AM</option><option>PM</option></select>
@@ -1932,13 +1932,13 @@ function renderTeacherBlocks(n){
   $('f2teacherBlocks').innerHTML=Array.from({length:n},(_,i)=>`
     <div style="margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:10px">
       <strong style="color:var(--navy)">Teacher ${i+1}</strong>
-      <label style="display:block;margin-top:8px">Name${i===0?' <span class="req">*</span>':''}</label>
-      <input id="f2t${i+1}name" placeholder="Full name${i>0?' (optional)':''}" />
-      <label style="display:block">Phone Number</label>
+      <label style="display:block;margin-top:8px">Name <span class="req">*</span></label>
+      <input id="f2t${i+1}name" placeholder="Full name" />
+      <label style="display:block">Phone Number <span class="req">*</span></label>
       <input id="f2t${i+1}phone" type="tel" inputmode="numeric" placeholder="10-digit mobile" />
-      <label style="display:block">Assigned for Grades</label>
+      <label style="display:block">Select grades assigned to teacher</label>
       <div class="chips" id="f2t${i+1}grades">
-        ${f2ActiveGrades.slice().sort((a,b)=>Number(a)-Number(b)).map(g=>`<div class="chip" data-g="${g}">Grade ${g}</div>`).join('')}
+        ${f2ActiveGrades.slice().sort((a,b)=>Number(a)-Number(b)).map(g=>`<div class="chip${f2ActiveGrades.length===1?' on':''}" data-g="${g}">Grade ${g}</div>`).join('')}
       </div>
     </div>
   `).join('');
@@ -1958,7 +1958,18 @@ $('submit2Btn').onclick = async () => {
   const teacherCount=parseInt($('f2teacherCount').value)||0;
   if(teacherCount<1) return toast('Enter number of Teacher POCs.');
   if(!($('f2t1name')||{value:''}).value) return toast('Enter name for Teacher 1.');
+  if(!($('f2t1phone')||{value:''}).value.trim()) return toast('Enter phone number for Teacher 1.');
+  for(let i=2;i<=teacherCount;i++){
+    if(!($('f2t'+i+'name')||{value:''}).value.trim()) return toast(`Enter name for Teacher ${i}.`);
+    if(!($('f2t'+i+'phone')||{value:''}).value.trim()) return toast(`Enter phone number for Teacher ${i}.`);
+  }
   if(!$('f2poc').value) return toast('Enter IIF PoC.');
+  for(const g of (f2ActiveGrades||[])){
+    if(!($('f2sch_day_'+g)||{value:''}).value) return toast(`Select Day for Grade ${g} schedule.`);
+    if(!($('f2sch_hr_'+g)||{value:''}).value) return toast(`Select Hour for Grade ${g} schedule.`);
+    if(!($('f2sch_min_'+g)||{value:''}).value) return toast(`Select Minutes for Grade ${g} schedule.`);
+    if(!($('f2sch_ampm_'+g)||{value:''}).value) return toast(`Select AM/PM for Grade ${g} schedule.`);
+  }
   const s=getSession();
   const payload={
     formId:'form2_schools_contact', formVersion:'1.0',

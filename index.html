@@ -200,11 +200,23 @@
     <div class="hint" id="schoolHint">Schools load from the Schools_List tab and filter by partner.</div>
     <label>School Code</label>
     <input id="schoolCode" placeholder="auto-filled" readonly style="background:var(--pastel)" />
-    <label>Visited by (IIF staff) <span class="req">*</span></label>
-    <input id="visitedBy" placeholder="Your name" />
-    <label>Date of visit <span class="req">*</span></label>
-    <input id="visitDate" type="date" />
+    <div id="f1loader" style="display:none;text-align:center;padding:20px 0">
+      <span class="buddy-spinner" style="width:24px;height:24px;border-width:3px;margin-bottom:6px"></span>
+      <div style="font-size:12px;color:var(--muted)">Checking school data…</div>
+    </div>
+    <div id="f1dupblock" style="display:none;margin-top:14px;padding:14px;background:#FFF3CD;border-radius:10px;border:1px solid #FFD700">
+      <b style="color:#856404">&#9888; Already submitted for this school.</b>
+      <p style="margin:6px 0 0;font-size:13px;color:#856404">Form 1 data has already been submitted for this school. Please contact admin to make any changes.</p>
+    </div>
+    <div id="f1visitfields" style="display:none">
+      <label>Visited by (IIF staff) <span class="req">*</span></label>
+      <input id="visitedBy" placeholder="Your name" />
+      <label>Date of visit <span class="req">*</span></label>
+      <input id="visitDate" type="date" />
+    </div>
   </div>
+
+  <div id="f1sections" style="display:none">
 
   <!-- SECTION A -->
   <div class="card">
@@ -294,6 +306,8 @@
     <div class="hint">Principal aware of programme and timing.</div>
     <div class="yn" data-yn="i3"><button data-v="Yes">Yes</button><button data-v="No">No</button></div>
   </div>
+
+  </div><!-- end f1sections -->
 </main>
 
 <footer id="footer1" style="display:none">
@@ -315,12 +329,16 @@
     <input id="f2code" placeholder="auto-filled" readonly style="background:var(--pastel)" />
     <div id="f2loader" style="display:none;text-align:center;padding:20px 0">
       <span class="buddy-spinner" style="width:24px;height:24px;border-width:3px;margin-bottom:6px"></span>
-      <div style="font-size:12px;color:var(--muted)">Checking Form 1 data…</div>
+      <div style="font-size:12px;color:var(--muted)">Checking school data…</div>
     </div>
     <div id="f2form1block" style="display:none;margin-top:14px;padding:14px;background:#FFF3CD;border-radius:10px;border:1px solid #FFD700">
       <b style="color:#856404">⚠ Form 1 not yet submitted for this school.</b>
       <p style="margin:6px 0 0;font-size:13px;color:#856404">Please fill <b>Form 1 · School Enrollment</b> first before filling this form.</p>
       <button type="button" onclick="showScreen('form1')" style="margin-top:10px;padding:8px 16px;background:#0D3B4A;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">Go to Form 1 →</button>
+    </div>
+    <div id="f2dupblock" style="display:none;margin-top:14px;padding:14px;background:#FFF3CD;border-radius:10px;border:1px solid #FFD700">
+      <b style="color:#856404">&#9888; Already submitted for this school.</b>
+      <p style="margin:6px 0 0;font-size:13px;color:#856404">Form 2 data has already been submitted for this school. Please contact admin to make any changes.</p>
     </div>
     <div id="f2prefill" style="display:none">
       <label style="margin-top:14px;display:flex;justify-content:space-between;align-items:center">School Google Maps Link<span style="font-size:11px;font-weight:400;color:var(--muted)">Auto-filled from Form 1</span></label>
@@ -914,10 +932,45 @@ function renderGrades(){
 }
 
 /* ---------- partner / school linkage ---------- */
+let f1BlockedByDup = false;
 $('partner').addEventListener('change', refreshSchoolOptions);
-$('school').addEventListener('change', () => {
-  const opt=$('school').selectedOptions[0];
-  $('schoolCode').value = opt ? (opt.dataset.code||'') : '';
+$('school').addEventListener('change', async () => {
+  const opt = $('school').selectedOptions[0];
+  const code = opt ? (opt.dataset.code || '') : '';
+  $('schoolCode').value = code;
+  $('f1dupblock').style.display = 'none';
+  $('f1visitfields').style.display = 'none';
+  $('f1sections').style.display = 'none';
+  $('footer1').style.display = 'none';
+  $('f1loader').style.display = 'none';
+  f1BlockedByDup = false;
+  if (!code) return;
+  const s = getSession(); const url = getCfg().url;
+  if (!s || !url) {
+    $('f1visitfields').style.display = 'block';
+    $('f1sections').style.display = 'block';
+    $('footer1').style.display = 'flex';
+    return;
+  }
+  $('f1loader').style.display = 'block';
+  try {
+    const r = await fetch(url + '?action=schoolData&schoolCode=' + encodeURIComponent(code) + '&token=' + encodeURIComponent(s.token));
+    const j = await r.json();
+    if (j.status === 'ok' && j.data && j.data.form1_school_orientation) {
+      $('f1dupblock').style.display = 'block';
+      f1BlockedByDup = true;
+    } else {
+      $('f1visitfields').style.display = 'block';
+      $('f1sections').style.display = 'block';
+      $('footer1').style.display = 'flex';
+    }
+  } catch (e) {
+    $('f1visitfields').style.display = 'block';
+    $('f1sections').style.display = 'block';
+    $('footer1').style.display = 'flex';
+  } finally {
+    $('f1loader').style.display = 'none';
+  }
 });
 
 /* ---------- Y/N buttons ---------- */
@@ -1078,6 +1131,7 @@ function validate(){
 
 /* ---------- submit + offline queue ---------- */
 $('submitBtn').onclick = async () => {
+  if(f1BlockedByDup) return toast('This school has already submitted Form 1. Contact admin for changes.');
   const err=validate();
   if(err){ toast(err); return; }
   $('submitBtn').disabled=true; $('submitBtn').textContent='Reading photos…';
@@ -1085,6 +1139,7 @@ $('submitBtn').onclick = async () => {
   const payload=collect();
   $('submitBtn').textContent='Sending…';
   const ok=await send(payload);
+  if(ok==='duplicate'){ $('submitBtn').disabled=false; $('submitBtn').textContent='Submit'; toast('This school has already submitted Form 1. Contact admin for changes.'); return; }
   if(ok){ localStorage.removeItem(DRAFT_KEY); showDone(payload.submissionId); }
   else { queue(payload); showDone(payload.submissionId,true); }
 };
@@ -1097,6 +1152,7 @@ async function send(payload){
       headers:{'Content-Type':'text/plain;charset=utf-8'}, // avoids CORS preflight
       body:JSON.stringify(payload)});
     const j=await r.json();
+    if(j.status==='duplicate'){ return 'duplicate'; }
     return j.status==='success';
   }catch(e){ return false; }
 }
@@ -1114,7 +1170,7 @@ async function flushQueue(){
   let q=JSON.parse(localStorage.getItem(QUEUE_KEY)||'[]');
   if(!q.length) return;
   const remain=[];
-  for(const p of q){ const ok=await send(p); if(!ok) remain.push(p); }
+  for(const p of q){ const result=await send(p); if(result!==true&&result!=='duplicate') remain.push(p); }
   localStorage.setItem(QUEUE_KEY,JSON.stringify(remain));
   updateQueueBanner();
   if(q.length&&!remain.length) toast('Queued submissions synced ✓');
@@ -1147,7 +1203,7 @@ function restoreDraft(){
     grp.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));});
   // school dropdown: rebuild options for the restored partner, then set value
   refreshSchoolOptions();
-  if(s.fields.school){ $('school').value=s.fields.school; $('schoolCode').value=s.fields.schoolCode||''; }
+  if(s.fields.school){ $('school').value=s.fields.school; $('schoolCode').value=s.fields.schoolCode||''; $('school').dispatchEvent(new Event('change')); }
   updateBar(); toast('Draft restored');
 }
 
@@ -1334,8 +1390,11 @@ function showScreen(which){
   if(which==='home'){
     $('home').style.display='block'; $('hdrTitle').textContent='THINK & MAKE 2026-27'; updateQueueBanner();
   } else if(which==='form1'){
-    $('app').style.display='block'; $('footer1').style.display='flex';
+    $('app').style.display='block';
     $('hdrTitle').textContent='School Enrollment — Form 1'; refreshSchoolOptions(); updateBar();
+    $('f1sections').style.display='none'; $('f1visitfields').style.display='none';
+    $('f1dupblock').style.display='none'; $('f1loader').style.display='none';
+    $('footer1').style.display='none';
   } else if(which==='form2'){
     $('app2').style.display='block'; $('footer2').style.display='flex';
     $('hdrTitle').textContent='Schools Contact Info — Form 2'; refreshF2Schools();
@@ -1842,6 +1901,7 @@ $('savePermsBtn').onclick = async () => {
 
 /* ---------- Form 2: Schools Contact Info ---------- */
 let f2BlockedByF1 = false;
+let f2BlockedByDup = false;
 let f2ActiveGrades = [];
 
 function renderScheduleBlocks(grades){
@@ -1871,6 +1931,7 @@ function f2ClearPrefill(){
   $('f2location').value=''; $('f2principal').value=''; $('f2phone').value='';
   $('f2grades').querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
   $('f2form1block').style.display='none';
+  $('f2dupblock').style.display='none';
   $('f2prefill').style.display='none';
   $('f2teachersCard').style.display='none';
   $('f2teacherBlocks').innerHTML='';
@@ -1878,6 +1939,7 @@ function f2ClearPrefill(){
   $('f2scheduleBlocks').innerHTML='';
   $('submit2Btn').disabled=true; $('submit2Btn').style.opacity='0.45';
   f2BlockedByF1=false;
+  f2BlockedByDup=false;
   f2ActiveGrades=[];
 }
 
@@ -1919,12 +1981,22 @@ $('f2school').addEventListener('change', async ()=>{
       $('f2grades').querySelectorAll('.chip').forEach(c=>{
         c.classList.toggle('on', grades.includes(c.dataset.g));
       });
-      $('f2prefill').style.display='block';
-      $('f2teachersCard').style.display='block';
-      renderScheduleBlocks(grades);
-      $('f2scheduleCard').style.display='block';
-      $('submit2Btn').disabled=false; $('submit2Btn').style.opacity='';
       f2BlockedByF1=false;
+      if(j.data.form2_schools_contact){
+        $('f2dupblock').style.display='block';
+        $('f2prefill').style.display='none';
+        $('f2teachersCard').style.display='none';
+        $('f2scheduleCard').style.display='none';
+        $('submit2Btn').disabled=true; $('submit2Btn').style.opacity='0.45';
+        f2BlockedByDup=true;
+      } else {
+        $('f2prefill').style.display='block';
+        $('f2teachersCard').style.display='block';
+        renderScheduleBlocks(grades);
+        $('f2scheduleCard').style.display='block';
+        $('submit2Btn').disabled=false; $('submit2Btn').style.opacity='';
+        f2BlockedByDup=false;
+      }
     }
   }catch(e){ toast('Could not load school data. Try again.'); }finally{ $('f2loader').style.display='none'; }
 });
@@ -1954,6 +2026,7 @@ $('submit2Btn').onclick = async () => {
   const p=$('f2partner').value, sc=$('f2school').value;
   if(!p) return toast('Select partner.');
   if(!sc) return toast('Select school.');
+  if(f2BlockedByDup) return toast('This school has already submitted Form 2. Contact admin for changes.');
   if(f2BlockedByF1) return toast('Please fill Form 1 for this school first.');
   const teacherCount=parseInt($('f2teacherCount').value)||0;
   if(teacherCount<1) return toast('Enter number of Teacher POCs.');
@@ -1994,6 +2067,7 @@ $('submit2Btn').onclick = async () => {
   $('submit2Btn').disabled=true; $('submit2Btn').textContent='Sending…';
   const ok=await send(payload);
   $('submit2Btn').disabled=false; $('submit2Btn').textContent='Submit';
+  if(ok==='duplicate'){ toast('This school has already submitted Form 2. Contact admin for changes.'); return; }
   if(ok){
     $('app2').innerHTML='<div class="done"><div class="big">✅</div><h2>Submitted</h2>'
       +'<p>Schools contact info saved.</p><span class="idpill">'+payload.submissionId+'</span>'

@@ -81,10 +81,13 @@ function doPost(e) {
       return json({ status: 'error', message: 'Unauthorised' });
     }
 
-    if (action === 'saveUser')          return handleSaveUser(payload);
-    if (action === 'savePermissions')   return handleSavePermissions(payload);
-    if (action === 'extractTeamData')   return handleExtractTeamData(payload);
-    if (action === 'processInnovation') return handleProcessInnovation(payload);
+    if (action === 'saveUser')               return handleSaveUser(payload);
+    if (action === 'savePermissions')        return handleSavePermissions(payload);
+    if (action === 'extractTeamData')        return handleExtractTeamData(payload);
+    if (action === 'processInnovation')      return handleProcessInnovation(payload);
+    if (action === 'saveIdeaArtifact')       return handleSaveIdeaArtifact(payload);
+    if (action === 'generateSectionFeedback') return handleGenerateSectionFeedback(payload);
+    if (action === 'getTeamPhoto')           return handleGetTeamPhoto(payload);
 
     // Form submissions (formId present)
     if (payload.formId) return handleFormSubmit(payload);
@@ -106,13 +109,15 @@ function doGet(e) {
     return json({ status: 'error', message: 'Unauthorised' });
   }
 
-  if (action === 'schoolData')          return handleSchoolData(p);
-  if (action === 'allSchoolStatus')     return handleAllSchoolStatus(p);
-  if (action === 'formData')            return handleFormData(p);
-  if (action === 'listUsers')           return handleListUsers(p);
-  if (action === 'getTeamData')         return handleGetTeamData(p);
-  if (action === 'getSchoolSummary')    return handleGetSchoolSummary(p);
-  if (action === 'allForm3Submissions') return handleAllForm3Submissions(p);
+  if (action === 'schoolData')               return handleSchoolData(p);
+  if (action === 'allSchoolStatus')          return handleAllSchoolStatus(p);
+  if (action === 'formData')                 return handleFormData(p);
+  if (action === 'listUsers')                return handleListUsers(p);
+  if (action === 'getTeamData')              return handleGetTeamData(p);
+  if (action === 'getSchoolSummary')         return handleGetSchoolSummary(p);
+  if (action === 'allForm3Submissions')      return handleAllForm3Submissions(p);
+  if (action === 'getSchoolGradesAndSections') return handleGetSchoolGradesAndSections(p);
+  if (action === 'getSchoolBuddyTeams')      return handleGetSchoolBuddyTeams(p);
 
   return json({ status: 'ok', message: 'TM form backend live' });
 }
@@ -602,15 +607,17 @@ function getPartnerConfig(ss) {
   var header = data[0].map(function(h) { return String(h).trim(); });
   var folderIdx    = header.indexOf('FolderID');         if (folderIdx < 0)   folderIdx = 1;
   var sheetIdx     = header.indexOf('SheetID');          if (sheetIdx < 0)    sheetIdx = 2;
-  var studentDbIdx = header.indexOf('StudentDbSheetId'); // -1 if column not yet added
+  var studentDbIdx   = header.indexOf('StudentDbSheetId');   // -1 if column not yet added
+  var ideaFbIdx      = header.indexOf('IdeaFeedbackSheetId'); // -1 if column not yet added
   var config = {};
   for (var i = 1; i < data.length; i++) {
     var name = String(data[i][0] || '').trim();
     if (!name) continue;
     config[name] = {
-      folderId:         String(data[i][folderIdx] || '').trim(),
-      sheetId:          String(data[i][sheetIdx]  || '').trim(),
-      studentDbSheetId: studentDbIdx >= 0 ? String(data[i][studentDbIdx] || '').trim() : ''
+      folderId:            String(data[i][folderIdx] || '').trim(),
+      sheetId:             String(data[i][sheetIdx]  || '').trim(),
+      studentDbSheetId:    studentDbIdx >= 0 ? String(data[i][studentDbIdx] || '').trim() : '',
+      ideaFeedbackSheetId: ideaFbIdx    >= 0 ? String(data[i][ideaFbIdx]    || '').trim() : ''
     };
   }
   return config;
@@ -1547,4 +1554,438 @@ function buildBuddyFeedbackMessages(imageBase64, imageMime) {
 
 function getBuddyFeedbackSystemPrompt() {
   return "You are an experienced innovation evaluator and design-thinking mentor working with Grade 6-10 student teams in India.\n\nYour role is to review student innovation submissions and provide structured, critical, and encouraging mentor-grade feedback.\n\nYou must think like a trained evaluator. Your feedback must reflect the evaluation rubric described below.\n\nMULTI-MODAL EVIDENCE HANDLING (CRITICAL):\nStudent submissions may include:\n- Problem text\n- Solution text\n- Prototype images, drawings, or physical builds\n- Additional documents (PDFs, notes, reports)\nYou must evaluate all available evidence together, while clearly distinguishing between sources.\n\nRules:\n- Text shows what the student claims\n- Prototype/images show what the student has actually built or demonstrated\n- Documents provide supporting context or validation\n- Do not assume missing information or introduce structures unless clearly described or visible\n- If something is not explained or visible, do not infer it\n- Identify gaps and mismatches: If something is claimed in text but not shown in prototype, question it. If something is shown in prototype but not explained in text, acknowledge it.\n- Evaluate prototype impact carefully: If the prototype adds new clarity about design, structure, or usage → treat it as strong evidence. If it only confirms what is already understood → do not upgrade evaluation. If it is unclear or unrelated → explicitly state this and do not use it for evaluation.\n- Distinguish design clarity vs technical depth: If the prototype shows what the solution is, how it looks, and how it is used → treat this as a strength. If deeper aspects (why it works, performance, durability) are missing → highlight this as a gap.\n\nEVALUATION RUBRIC (You must internally evaluate across ALL five areas):\n\nA. PROBLEM & USER\nEvaluate:\n- Is the problem real, meaningful, and relevant?\n- Is it specific and clearly defined?\n- Does the team show empathy toward users?\n- Is there evidence of observation, investigation, or real-world grounding?\n\nB. SOLUTIONING\nEvaluate:\n- Does the solution directly address the stated problem?\n- Is there a strong problem-solution fit?\n- Is the solution useful in practice?\n- Is it meaningfully different from common or existing solutions?\n- Is it scientifically or technically accurate?\n- Is it clearly explained how it works?\n\nC. PROTOTYPING & TESTING\nEvaluate:\n- Is the idea tangible beyond just a concept?\n- Has the team built, tested, or validated it in any way?\n- Does the prototype (if provided) clearly show how the solution works?\n- Does it add new understanding beyond the text?\n- Are there gaps between what is claimed and what is demonstrated?\n- Have they considered edge cases or failure scenarios?\n- Do they show systems thinking in how the solution operates in real-world use?\n\nD. IMPACT & SCALABILITY\nEvaluate:\n- How many people could benefit?\n- Is adoption realistic?\n- Is it affordable and practical?\n- What constraints might limit scaling?\n\nE. SUSTAINABILITY & ENVIRONMENT\nEvaluate:\n- Can the solution survive long-term?\n- Does it depend on limited resources?\n- Are environmental or social consequences considered?\n- Is stakeholder buy-in realistic?\n\nSTRICT OUTPUT RULES (MANDATORY):\n- Output must be CLEAN PLAIN TEXT.\n- Do NOT output JSON.\n- Do NOT use quotation marks.\n- Do NOT use markdown symbols.\n- Do NOT wrap output in code blocks.\n- Do NOT explain your reasoning.\n- Follow the exact heading names below.\n- Use \"-\" for bullet points only.\n- Do not exceed bullet limits.\n- Each feedback point must reference specific elements from the student's submission (materials, mechanism, user, or prototype)\n\nMANDATORY OUTPUT FORMAT:\n\nACKNOWLEDGEMENT:\n- Exactly 1-2 sentences\n- Clearly mention the idea title or name\n- Acknowledge the student's effort in identifying the problem and proposing a solution\n- Do NOT include evaluation, praise for specific components, or prototype-related comments\n- Keep it simple, respectful, and focused on recognizing the submission and intent.\n\nWHAT YOU DID WELL:\n- 3 to 4 bullet points identifying real strengths aligned to rubric criteria.\n- Each bullet must reflect a different evaluation rubric area\n- Do not give generic praise.\n- Use specific details from the student's submission (e.g., sensor, coconut shell, pipe, drawing, model)\n- If prototype or additional evidence is available, include it naturally in at least one bullet\n- Do not over-focus on the prototype; treat it as supporting evidence\n- Use simple, clear, student-friendly sentences\n\nTHINGS TO THINK MORE ABOUT:\n- 4 to 5 bullet points.\n- Each bullet must be a QUESTION.\n- Cover different feedback evaluation areas\n- Prioritize 1-2 questions from the areas where the idea shows the weakest thinking or reasoning\n- Include at least one question that helps the student improve their problem-solving or design thinking process\n- Do NOT provide solutions.\n- Push deeper thinking based on gaps in the idea\n- Use simple, clear sentences\n- Avoid long or complex questions\n\nLEVEL-UP NOTE:\n- 3 to 4 sentences in simple, clear language\n- Acknowledge the student's problem-solving journey and effort\n- Encourage them to keep exploring and improving their idea (growth mindset), referring to the feedback above.\n- Maintain a positive, motivating tone, calibrated to the idea's strength\n- The final sentence must include a program-aligned closing such as: \"Keep problem-solving, tinkering, and innovating — all the best!\"\n- Do NOT repeat specific feedback points\n\nSPECIAL HANDLING RULE:\n- Treat submissions as low-effort if the problem or solution is extremely brief, lacks explanation, or only states a generic solution without describing how it works, or is common or copied.\nIf the submission is low-effort:\n    - Do NOT generate full evaluator feedback.\n    - Provide acknowledgement.\n    - Appreciate empathy toward the problem.\n    - Ask only 2 to 3 reflective questions encouraging originality.\n    - Do NOT praise originality or depth.\n    - Encourage revisiting the design thinking process.\n    - However, if prototype or additional evidence shows clear effort or building, do not classify the idea as low effort\n\nTONE REQUIREMENTS:\n- Respectful\n- Mentor-like\n- Encouraging but intellectually challenging\n- Age appropriate for Grade 6-10\n- Never dismissive";
+}
+
+// ======================================================================
+// SCHOOL BUDDY FLOW — Grade/Section navigation, idea upload, bulk feedback
+// ======================================================================
+
+// -------- PARTNER CONFIG HELPERS (Idea Feedback sheet) --------
+
+function updatePartnerIdeaFeedbackId(ss, partnerName, sheetId) {
+  var sheet = getOrCreatePartnerConfigTab(ss);
+  var data = sheet.getDataRange().getValues();
+  var header = data[0].map(function(h) { return String(h).trim(); });
+  var colIdx = header.indexOf('IdeaFeedbackSheetId');
+  if (colIdx < 0) {
+    colIdx = header.length;
+    sheet.getRange(1, colIdx + 1).setValue('IdeaFeedbackSheetId');
+  }
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0] || '').trim() === partnerName) {
+      sheet.getRange(i + 1, colIdx + 1).setValue(sheetId);
+      return;
+    }
+  }
+}
+
+function getOrCreateIdeaFeedbackSheet(partnerName, partnerFolderId) {
+  var ss = getSheet();
+  var config = getPartnerConfig(ss);
+  var entry = config[partnerName] || {};
+  if (entry.ideaFeedbackSheetId) {
+    try { return SpreadsheetApp.openById(entry.ideaFeedbackSheetId); } catch(e) {}
+  }
+  var newSS = SpreadsheetApp.create(partnerName + ' - TM Idea Feedback');
+  if (partnerFolderId) {
+    try {
+      var file = DriveApp.getFileById(newSS.getId());
+      DriveApp.getFolderById(partnerFolderId).addFile(file);
+      DriveApp.getRootFolder().removeFile(file);
+    } catch(e) { Logger.log('Could not move Idea Feedback sheet: ' + e.message); }
+  }
+  updatePartnerIdeaFeedbackId(ss, partnerName, newSS.getId());
+  return newSS;
+}
+
+function getOrCreateIdeaFeedbackTab(ideaSS, schoolCode, grade) {
+  var tabName = (schoolCode + '_Gr' + grade).replace(/[^a-zA-Z0-9_\-]/g, '_').substring(0, 100);
+  var sheet = ideaSS.getSheetByName(tabName);
+  if (!sheet) {
+    sheet = ideaSS.insertSheet(tabName);
+    var defaultSheet = ideaSS.getSheetByName('Sheet1');
+    if (defaultSheet) { try { ideaSS.deleteSheet(defaultSheet); } catch(e) {} }
+    var cols = ['EvalID','TeamCode','SLName','ClusterID','Grade','Section',
+                'SchoolCode','School','StudentNames','IdeaPhotoURL','AudioURL',
+                'FeedbackText','GeneratedAt','SubmittedBy','EvalCount'];
+    sheet.appendRow(cols);
+    sheet.setFrozenRows(1);
+    sheet.getRange(1, 1, 1, cols.length).setBackground('#0D3B4A').setFontColor('#ffffff').setFontWeight('bold');
+  }
+  return sheet;
+}
+
+function getOrCreateIdeaArtifactsFolder(partnerFolderId, partnerName) {
+  var folderName = (partnerName || 'Default') + '_Idea Artifacts';
+  if (partnerFolderId) {
+    try {
+      var parent = DriveApp.getFolderById(partnerFolderId);
+      var iter = parent.getFoldersByName(folderName);
+      return iter.hasNext() ? iter.next() : parent.createFolder(folderName);
+    } catch(e) {}
+  }
+  var iter2 = DriveApp.getFoldersByName(folderName);
+  return iter2.hasNext() ? iter2.next() : DriveApp.createFolder(folderName);
+}
+
+// -------- GET GRADES & SECTIONS (from Form 3 submissions) --------
+
+function handleGetSchoolGradesAndSections(p) {
+  var schoolCode = (p.schoolCode || '').trim().toUpperCase();
+  if (!schoolCode) return json({ status: 'error', message: 'schoolCode required' });
+  var ss = getSheet();
+  var partnerName = getPartnerForSchool(ss, schoolCode);
+  var targetSS = partnerName ? getOrCreatePartnerSheet(partnerName, ss) : ss;
+  var schema = FORM_SCHEMAS['form3_student_data'];
+  var sheet = targetSS.getSheetByName(schema.tabName);
+  if (!sheet) return json({ status: 'ok', gradesAndSections: [] });
+  var data = sheet.getDataRange().getValues();
+  var header = data[0];
+  var scIdx     = header.indexOf('School Code');
+  var grIdx     = header.indexOf('Grade');
+  var secIdx    = header.indexOf('Section');
+  var statusIdx = header.indexOf('Status');
+  var seen = {};
+  var results = [];
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][scIdx]).trim().toUpperCase() !== schoolCode) continue;
+    if (statusIdx >= 0 && String(data[i][statusIdx]).toLowerCase() === 'superseded') continue;
+    var grade   = String(data[i][grIdx]  || '').trim();
+    var section = String(data[i][secIdx] || '').trim().toUpperCase();
+    if (!grade || !section) continue;
+    var key = grade + '|' + section;
+    if (!seen[key]) { seen[key] = true; results.push({ grade: grade, section: section }); }
+  }
+  results.sort(function(a, b) {
+    var gd = Number(a.grade) - Number(b.grade);
+    return gd !== 0 ? gd : (a.section < b.section ? -1 : a.section > b.section ? 1 : 0);
+  });
+
+  // Read Form 1 enrollment data to get expected grade/section counts
+  var expectedGrades = [];
+  try {
+    var f1Tab = targetSS.getSheetByName('School_Enrollment');
+    if (f1Tab) {
+      var f1Data = f1Tab.getDataRange().getValues();
+      var f1Hdr  = f1Data[0];
+      var f1Sc   = f1Hdr.indexOf('School Code');
+      var f1Gd   = f1Hdr.indexOf('Grade Data');
+      var f1St   = f1Hdr.indexOf('Status');
+      for (var r = 1; r < f1Data.length; r++) {
+        if (String(f1Data[r][f1Sc]||'').trim().toUpperCase() !== schoolCode) continue;
+        if (f1St >= 0 && String(f1Data[r][f1St]||'').toLowerCase() === 'superseded') continue;
+        var gradeDataStr = String(f1Data[r][f1Gd]||'').trim();
+        var re = /Grade\s+(\d+):\s*\d+\s*students?,\s*(\d+)\s*sections?/gi;
+        var m;
+        while ((m = re.exec(gradeDataStr)) !== null) {
+          expectedGrades.push({ grade: m[1], sectionCount: parseInt(m[2], 10) });
+        }
+        break; // first non-superseded Form 1 row for this school
+      }
+    }
+  } catch(e) {}
+
+  return json({ status: 'ok', gradesAndSections: results, expectedGrades: expectedGrades });
+}
+
+// -------- GET SCHOOL BUDDY TEAMS (from Student DB + idea status) --------
+
+function handleGetSchoolBuddyTeams(p) {
+  var schoolCode = (p.schoolCode || '').trim().toUpperCase();
+  var grade      = (p.grade    || '').trim();
+  var section    = (p.section  || '').trim().toUpperCase();
+  if (!schoolCode || !grade || !section) {
+    return json({ status: 'error', message: 'schoolCode, grade and section required' });
+  }
+  var ss = getSheet();
+  var partnerName = getPartnerForSchool(ss, schoolCode);
+  var pConfig = getPartnerConfig(ss);
+  var pEntry  = pConfig[partnerName] || {};
+
+  // Read teams from Student Database
+  var teams = [];
+  var teamMap = {}; // teamCode → team object (for dedup/grouping)
+  if (pEntry.studentDbSheetId) {
+    try {
+      var dbSS  = SpreadsheetApp.openById(pEntry.studentDbSheetId);
+      var tabName = schoolCode.replace(/[^a-zA-Z0-9_\- ]/g, '_').substring(0, 100).trim();
+      var dbTab = dbSS.getSheetByName(tabName);
+      if (dbTab) {
+        var dbData   = dbTab.getDataRange().getValues();
+        var dbHeader = dbData[0];
+        var dbGrIdx  = dbHeader.indexOf('Grade');
+        var dbSecIdx = dbHeader.indexOf('Section');
+        var dbSlIdx  = dbHeader.indexOf('SL Name');
+        var dbSlIdIdx= dbHeader.indexOf('SL ID');
+        var dbClIdx  = dbHeader.indexOf('Cluster ID');
+        var dbTcIdx  = dbHeader.indexOf('Team Code');
+        var dbStIdx  = dbHeader.indexOf('Student Name');
+        for (var i = 1; i < dbData.length; i++) {
+          if (String(dbData[i][dbGrIdx]  || '').trim()               !== grade)   continue;
+          if (String(dbData[i][dbSecIdx] || '').trim().toUpperCase() !== section)  continue;
+          var tc = String(dbData[i][dbTcIdx] || '').trim();
+          if (!tc) continue;
+          if (!teamMap[tc]) {
+            teamMap[tc] = {
+              teamCode:  tc,
+              slName:    String(dbData[i][dbSlIdx]   || '').trim(),
+              slId:      String(dbData[i][dbSlIdIdx]  || '').trim(),
+              clusterId: String(dbData[i][dbClIdx]   || '').trim(),
+              grade:     grade,
+              section:   section,
+              students:  [],
+              photoUrl:'', audioUrl:'', feedbackText:'', evalCount:0
+            };
+            teams.push(teamMap[tc]);
+          }
+          var sName = String(dbData[i][dbStIdx] || '').trim();
+          if (sName) teamMap[tc].students.push(sName);
+        }
+      }
+    } catch(e) { Logger.log('getSchoolBuddyTeams DB error: ' + e.message); }
+  }
+
+  // Merge idea status from Idea Feedback sheet
+  if (pEntry.ideaFeedbackSheetId) {
+    try {
+      var ideaSS  = SpreadsheetApp.openById(pEntry.ideaFeedbackSheetId);
+      var fbTabName = (schoolCode + '_Gr' + grade).replace(/[^a-zA-Z0-9_\-]/g, '_').substring(0, 100);
+      var fbTab   = ideaSS.getSheetByName(fbTabName);
+      if (fbTab) {
+        var fbData   = fbTab.getDataRange().getValues();
+        var fbHeader = fbData[0];
+        var fTc   = fbHeader.indexOf('TeamCode');
+        var fSec  = fbHeader.indexOf('Section');
+        var fPh   = fbHeader.indexOf('IdeaPhotoURL');
+        var fAu   = fbHeader.indexOf('AudioURL');
+        var fFb   = fbHeader.indexOf('FeedbackText');
+        var fEc   = fbHeader.indexOf('EvalCount');
+        for (var j = 1; j < fbData.length; j++) {
+          if (String(fbData[j][fSec] || '').trim().toUpperCase() !== section) continue;
+          var ftc = String(fbData[j][fTc] || '').trim();
+          if (!ftc || !teamMap[ftc]) continue;
+          teamMap[ftc].photoUrl     = String(fbData[j][fPh] || '').trim();
+          teamMap[ftc].audioUrl     = String(fbData[j][fAu] || '').trim();
+          teamMap[ftc].feedbackText = String(fbData[j][fFb] || '').trim();
+          teamMap[ftc].evalCount    = Number(fbData[j][fEc] || 0);
+        }
+      }
+    } catch(e) { Logger.log('getSchoolBuddyTeams idea status error: ' + e.message); }
+  }
+
+  return json({ status: 'ok', teams: teams });
+}
+
+// -------- SAVE IDEA ARTIFACT (photo or audio upload per team) --------
+
+function handleSaveIdeaArtifact(payload) {
+  var schoolCode   = (payload.schoolCode || '').trim().toUpperCase();
+  var teamCode     = (payload.teamCode   || '').trim();
+  var grade        = (payload.grade      || '').trim();
+  var section      = (payload.section    || '').trim().toUpperCase();
+  var school       = payload.school      || '';
+  var partner      = payload.partner     || '';
+  var slName       = payload.slName      || '';
+  var clusterId    = payload.clusterId   || '';
+  var students     = payload.students    || [];
+  var artifactType = payload.artifactType|| 'photo';
+  var fileObj      = payload.file        || {};
+  var submittedBy  = payload.submittedBy || '';
+
+  if (!schoolCode || !teamCode || !fileObj.data) {
+    return json({ status: 'error', message: 'schoolCode, teamCode and file.data required' });
+  }
+
+  var ss = getSheet();
+  var pConfig = getPartnerConfig(ss);
+  var pEntry  = pConfig[partner] || {};
+  var partnerFolderId = pEntry.folderId || '';
+
+  // Get or create artifacts folder
+  var artifactsFolder = getOrCreateIdeaArtifactsFolder(partnerFolderId, partner);
+
+  // Determine file name and extension
+  var ext      = artifactType === 'audio' ? ((fileObj.mime || 'audio/webm').split('/')[1] || 'webm') : 'jpg';
+  var fileName = teamCode + '_Idea' + (artifactType === 'audio' ? 'Audio' : 'Pic') + '.' + ext;
+
+  // Delete existing file with same name to replace it
+  try {
+    var existIter = artifactsFolder.getFilesByName(fileName);
+    while (existIter.hasNext()) { existIter.next().setTrashed(true); }
+  } catch(e) {}
+
+  // Upload new file
+  var fileUrl = '';
+  try {
+    var blob = Utilities.newBlob(Utilities.base64Decode(fileObj.data), fileObj.mime || 'image/jpeg', fileName);
+    var uploadedFile = artifactsFolder.createFile(blob);
+    try { uploadedFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(e2) {}
+    fileUrl = uploadedFile.getUrl();
+  } catch(e) {
+    return json({ status: 'error', message: 'File upload failed: ' + e.message });
+  }
+
+  // Update Idea Feedback sheet
+  var ideaSS  = getOrCreateIdeaFeedbackSheet(partner, partnerFolderId);
+  var ideaTab = getOrCreateIdeaFeedbackTab(ideaSS, schoolCode, grade);
+  var tabData  = ideaTab.getDataRange().getValues();
+  var tabHdr   = tabData[0];
+  var iTc  = tabHdr.indexOf('TeamCode');
+  var iPh  = tabHdr.indexOf('IdeaPhotoURL');
+  var iAu  = tabHdr.indexOf('AudioURL');
+
+  // Find existing row
+  var existRow = -1;
+  for (var i = 1; i < tabData.length; i++) {
+    if (String(tabData[i][iTc] || '').trim() === teamCode) { existRow = i + 1; break; }
+  }
+
+  if (existRow > 0) {
+    var updateCol = (artifactType === 'audio' ? iAu : iPh) + 1;
+    ideaTab.getRange(existRow, updateCol).setValue(fileUrl);
+  } else {
+    var studentNames = Array.isArray(students) ? students.join(', ') : String(students);
+    var newRow = [
+      makeUUID(), teamCode, slName, clusterId, grade, section,
+      schoolCode, school, studentNames,
+      artifactType === 'photo' ? fileUrl : '',
+      artifactType === 'audio' ? fileUrl : '',
+      '', '', submittedBy, 0
+    ];
+    ideaTab.appendRow(newRow);
+  }
+
+  return json({ status: 'ok', fileUrl: fileUrl });
+}
+
+// -------- GENERATE SECTION FEEDBACK (bulk AI feedback for all teams with photos) --------
+
+function handleGenerateSectionFeedback(payload) {
+  var schoolCode = (payload.schoolCode || '').trim().toUpperCase();
+  var grade      = (payload.grade      || '').trim();
+  var section    = (payload.section    || '').trim().toUpperCase();
+  var partner    = payload.partner     || '';
+
+  if (!schoolCode || !grade || !section) {
+    return json({ status: 'error', message: 'schoolCode, grade and section required' });
+  }
+
+  var ss = getSheet();
+  var pConfig = getPartnerConfig(ss);
+  var pEntry  = pConfig[partner] || {};
+
+  if (!pEntry.ideaFeedbackSheetId) {
+    return json({ status: 'error', message: 'No idea feedback sheet found. Upload an idea photo first.' });
+  }
+
+  var ideaSS  = SpreadsheetApp.openById(pEntry.ideaFeedbackSheetId);
+  var tabName = (schoolCode + '_Gr' + grade).replace(/[^a-zA-Z0-9_\-]/g, '_').substring(0, 100);
+  var ideaTab = ideaSS.getSheetByName(tabName);
+  if (!ideaTab) {
+    return json({ status: 'error', message: 'No ideas submitted for this grade yet.' });
+  }
+
+  var tabData = ideaTab.getDataRange().getValues();
+  var tabHdr  = tabData[0];
+  var iTc  = tabHdr.indexOf('TeamCode');
+  var iSec = tabHdr.indexOf('Section');
+  var iPh  = tabHdr.indexOf('IdeaPhotoURL');
+  var iFb  = tabHdr.indexOf('FeedbackText');
+  var iAt  = tabHdr.indexOf('GeneratedAt');
+  var iEc  = tabHdr.indexOf('EvalCount');
+
+  var teamCodesFilter = Array.isArray(payload.teamCodes) && payload.teamCodes.length > 0
+    ? payload.teamCodes.map(function(c){ return String(c).trim(); })
+    : null;
+
+  var results = [];
+  var errors  = [];
+
+  for (var i = 1; i < tabData.length; i++) {
+    if (String(tabData[i][iSec] || '').trim().toUpperCase() !== section) continue;
+    var teamCode = String(tabData[i][iTc] || '').trim();
+    if (teamCodesFilter && teamCodesFilter.indexOf(teamCode) === -1) continue;
+    var photoUrl = String(tabData[i][iPh] || '').trim();
+    if (!photoUrl) continue;
+
+    // Download photo from Drive
+    var imageBase64 = null;
+    var imageMime   = 'image/jpeg';
+    try {
+      var fileId = extractDriveFileId(photoUrl);
+      if (!fileId) throw new Error('Could not parse Drive file ID from URL');
+      var driveFile = DriveApp.getFileById(fileId);
+      imageMime   = driveFile.getMimeType() || 'image/jpeg';
+      imageBase64 = Utilities.base64Encode(driveFile.getBlob().getBytes());
+    } catch(e) {
+      errors.push({ teamCode: teamCode, error: 'Photo access error: ' + e.message });
+      continue;
+    }
+
+    // Generate feedback via Gemini
+    var feedback = '';
+    try {
+      var msgs = buildBuddyFeedbackMessages(imageBase64, imageMime);
+      feedback = callGemini(msgs, 'gemini-2.5-flash', null);
+    } catch(e) {
+      errors.push({ teamCode: teamCode, error: 'Gemini error: ' + e.message });
+      continue;
+    }
+
+    // Update row
+    var now = new Date().toISOString();
+    var currentCount = Number(tabData[i][iEc] || 0);
+    ideaTab.getRange(i + 1, iFb + 1).setValue(feedback);
+    ideaTab.getRange(i + 1, iAt + 1).setValue(now);
+    ideaTab.getRange(i + 1, iEc + 1).setValue(currentCount + 1);
+
+    results.push({ teamCode: teamCode, feedback: feedback, evalCount: currentCount + 1 });
+  }
+
+  return json({ status: 'ok', results: results, errors: errors });
+}
+
+function handleGetTeamPhoto(payload) {
+  var schoolCode = (payload.schoolCode || '').trim().toUpperCase();
+  var teamCode   = (payload.teamCode   || '').trim();
+  var grade      = (payload.grade      || '').trim();
+  var partner    = (payload.partner    || '').trim();
+
+  if (!schoolCode || !teamCode) {
+    return json({ status: 'error', message: 'schoolCode and teamCode required' });
+  }
+
+  var ss = getSheet();
+  var pConfig = getPartnerConfig(ss);
+  var pEntry  = pConfig[partner] || {};
+  var partnerFolderId = pEntry.folderId || '';
+
+  var ideaSS  = getOrCreateIdeaFeedbackSheet(partner, partnerFolderId);
+  var ideaTab = getOrCreateIdeaFeedbackTab(ideaSS, schoolCode, grade);
+  var tabData = ideaTab.getDataRange().getValues();
+  var tabHdr  = tabData[0];
+  var iTc = tabHdr.indexOf('TeamCode');
+  var iPh = tabHdr.indexOf('IdeaPhotoURL');
+
+  var photoUrl = '';
+  for (var i = 1; i < tabData.length; i++) {
+    if (String(tabData[i][iTc] || '').trim() === teamCode) {
+      photoUrl = String(tabData[i][iPh] || '').trim();
+      break;
+    }
+  }
+
+  if (!photoUrl) return json({ status: 'error', message: 'No photo found for team' });
+
+  var match = photoUrl.match(/\/d\/([^\/\?]+)/);
+  if (!match) return json({ status: 'error', message: 'Invalid Drive URL format' });
+
+  try {
+    var file = DriveApp.getFileById(match[1]);
+    var mime = file.getMimeType() || 'image/jpeg';
+    var b64  = Utilities.base64Encode(file.getBlob().getBytes());
+    return json({ status: 'ok', base64: b64, mime: mime });
+  } catch(e) {
+    return json({ status: 'error', message: 'Could not read file: ' + e.message });
+  }
 }

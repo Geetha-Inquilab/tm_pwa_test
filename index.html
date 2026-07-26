@@ -129,11 +129,29 @@
   .buddy-btn-primary{background:var(--blue);color:#fff}
   .buddy-btn-primary:disabled{opacity:.45;cursor:default}
   .buddy-btn-success{background:var(--ok);color:#fff}
+  .buddy-btn-success:disabled{opacity:.45;cursor:default}
   .buddy-feedback{white-space:pre-wrap;font-size:14px;line-height:1.75;color:var(--ink)}
   .buddy-spinner{display:inline-block;width:36px;height:36px;border:4px solid var(--line);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite;margin-bottom:12px}
   @keyframes spin{to{transform:rotate(360deg)}}
   .photo-option-btn{flex:1;padding:12px 8px;border:1.5px solid var(--navy);border-radius:10px;background:#fff;cursor:pointer;font-weight:600;font-size:13px;transition:background .15s,color .15s,opacity .15s}
   .photo-option-btn:disabled{opacity:.35;cursor:not-allowed}
+  /* School Buddy flow */
+  .sb-status-badge{display:inline-block;font-size:12px;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap}
+  .sb-status-none{background:#f0f0f0;color:#666}
+  .sb-status-uploaded{background:var(--pastel);color:var(--navy)}
+  .sb-status-evaluated{background:#D4F5E3;color:var(--ok)}
+  .sb-team-card{border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px;background:#fff}
+  .sb-upload-row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+  .sb-upload-btn{flex:1;min-width:120px;padding:10px 8px;border:1.5px solid var(--navy);border-radius:10px;background:#fff;cursor:pointer;font-weight:600;font-size:13px;text-align:center;display:flex;align-items:center;justify-content:center;line-height:1.2}
+  .sb-section-label{font-size:13px;font-weight:700;color:var(--navy);margin-bottom:6px}
+  .sb-wave-ui{display:none;background:var(--navy);border-radius:12px;padding:8px 12px;align-items:center;gap:8px;margin-top:8px}
+  .sb-wave-canvas{flex:1;height:40px}
+  .sb-wave-timer{color:#fff;font-size:13px;font-weight:700;min-width:32px;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .sb-wave-dot{width:9px;height:9px;border-radius:50%;background:var(--err);flex-shrink:0;animation:sbBlink 1s infinite}
+  @keyframes sbBlink{0%,100%{opacity:1}50%{opacity:0.3}}
+  .sb-wave-btn{width:34px;height:34px;border-radius:50%;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;background:none;color:rgba(255,255,255,0.8);padding:0}
+  .sb-wave-send{background:#22c55e!important;color:#fff!important}
+  .sb-upload-ready{background:var(--ok)!important;color:#fff!important;border-color:var(--ok)!important}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
@@ -788,6 +806,52 @@
   <div id="boContent"><p style="text-align:center;color:var(--muted);padding:40px 0">Loading teams…</p></div>
 </main>
 
+<!-- SCHOOL BUDDY SCREEN -->
+<main id="schoolBuddyScreen" style="display:none">
+  <!-- Step 1: Grade + Section selection -->
+  <div id="sbStep1">
+    <div class="card">
+      <div class="sec-title"><span class="tag">Inqui Buddy</span> Select Grade &amp; Section</div>
+      <div id="sbLoadingGrades" style="text-align:center;padding:20px 0">
+        <div class="buddy-spinner" style="width:28px;height:28px;border-width:3px;margin-bottom:8px"></div>
+        <p style="color:var(--muted);font-size:14px;margin:0">Loading grade data…</p>
+      </div>
+      <div id="sbGradeSecWrap" style="display:none">
+        <label>Grade <span class="req">*</span></label>
+        <select id="sbGrade" onchange="sbGradeChange()"><option value="">Select grade…</option></select>
+        <label>Section <span class="req">*</span></label>
+        <select id="sbSection" onchange="sbSectionChange()"><option value="">Select section…</option></select>
+        <button id="sbProceedBtn" class="buddy-btn buddy-btn-primary" style="margin-top:16px" disabled onclick="sbProceed()">View Teams &rarr;</button>
+      </div>
+      <div id="sbCoverageInfo" style="display:none;margin-top:14px;padding:10px 12px;border-radius:10px;font-size:13px;line-height:1.6"></div>
+      <div id="sbNoGrades" style="display:none">
+        <div class="preview warn">No Form 3 data found for your school. Please ensure Form 3 has been submitted first.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 2: Teams list with upload -->
+  <div id="sbStep2" style="display:none">
+    <div class="card" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+      <div style="flex:1">
+        <div class="sec-title" style="margin:0"><span class="tag">Inqui Buddy</span> <span id="sbGradeSecLabel"></span></div>
+        <p id="sbSchoolLabel" class="hint" style="margin:4px 0 0"></p>
+      </div>
+      <button class="btn-sm" onclick="sbBack()">&larr; Back</button>
+    </div>
+    <div id="sbLoadingTeams" style="text-align:center;padding:30px 0;display:none">
+      <div class="buddy-spinner"></div>
+      <p style="color:var(--muted);font-size:14px;margin:0">Loading teams…</p>
+    </div>
+    <div id="sbTeamsList"></div>
+    <div class="card" style="padding:16px;margin-top:4px">
+      <div id="sbGenerateStatus" style="font-size:13px;text-align:center;margin-bottom:10px;display:none"></div>
+      <button id="sbGenerateBtn" class="buddy-btn buddy-btn-primary" onclick="sbGenerateFeedback()" disabled>Generate Feedback for All Submitted Teams</button>
+      <button id="sbDownloadAllBtn" class="buddy-btn buddy-btn-success" style="display:none;margin-top:8px" onclick="sbDownloadAllPDF()">&darr; Download All Teams Feedback PDF</button>
+    </div>
+  </div>
+</main>
+
 <div class="toast" id="toast"></div>
 
 <div id="cfgModal" style="display:none;position:fixed;inset:0;background:rgba(13,59,74,.55);z-index:60;padding:20px;overflow:auto">
@@ -1395,7 +1459,7 @@ function bootAfterLogin(){
 /* ============================================================
    SCREEN NAVIGATION (role-aware)
    ============================================================ */
-const ALL_SCREENS = ['home','app','app2','app3','app4','app5','schoolDash','iifDash','trackerScreen','adminUsers','adminPerms','buddyScreen','buddyEvalScreen','buddyOverviewScreen'];
+const ALL_SCREENS = ['home','app','app2','app3','app4','app5','schoolDash','iifDash','trackerScreen','adminUsers','adminPerms','buddyScreen','buddyEvalScreen','buddyOverviewScreen','schoolBuddyScreen'];
 const ALL_FOOTERS = ['footer1','footer2','footer3','footer4','footer5'];
 function hideAllScreens(){
   ALL_SCREENS.forEach(id=>{ const el=$(id); if(el) el.style.display='none'; });
@@ -1477,6 +1541,9 @@ function showScreen(which){
   } else if(which==='buddyOverviewScreen'){
     $('buddyOverviewScreen').style.display='block'; $('hdrTitle').textContent='Inqui Buddy · Teams';
     loadBuddyOverview();
+  } else if(which==='schoolBuddyScreen'){
+    $('schoolBuddyScreen').style.display='block'; $('hdrTitle').textContent='Inqui Buddy · School';
+    loadSchoolBuddyScreen();
   }
   window.scrollTo(0,0);
 }
@@ -2588,12 +2655,8 @@ function loadBuddyScreen(){
   Object.assign(buddyState,{partner:'',school:'',schoolCode:'',slName:'',clusterId:'',grade:'',section:'',teamId:'',teamStudents:[],teamData:null,feedback:'',imageUrl:''});
   const s=getSession();
   if(s&&s.role==='School'&&s.schoolCode){
-    const match=SCHOOLS.find(sc=>sc.code===s.schoolCode);
-    if(match){
-      buddyState.partner=match.partner; buddyState.school=match.name; buddyState.schoolCode=match.code;
-      showScreen('buddyOverviewScreen');
-      return;
-    }
+    showScreen('schoolBuddyScreen');
+    return;
   }
   // IIF / Admin: show step 1 with all partner chips
   ['buddy-step1','buddy-step2','buddy-step3','buddy-step4'].forEach((id,i)=>{ const el=$(id); if(el) el.style.display=i===0?'block':'none'; });
@@ -3056,6 +3119,684 @@ async function downloadAllTeamsPDF(){
 
   const fname='InquiBuddy_AllTeams_'+escHtml(buddyState.schoolCode)+'_'+new Date().toISOString().slice(0,10)+'.pdf';
   doc.save(fname);
+}
+
+/* ============================================================
+   SCHOOL BUDDY FLOW
+   ============================================================ */
+
+const schoolBuddyState = {
+  school:'', schoolCode:'', partner:'',
+  grade:'', section:'',
+  gradesAndSections:[], expectedGrades:[],
+  teams:[],
+  localArtifacts:{}  // teamCode → {photoBase64, photoMime, audioBase64, audioMime}
+};
+let sbMediaRecorder=null, sbRecordingTeamCode=null, sbRecordedChunks=[], sbRecordingStream=null;
+let sbAudioCtx=null, sbAnalyser=null, sbWaveAnimFrame=null, sbRecordTimer=null, sbRecordSecs=0;
+
+async function loadSchoolBuddyScreen(){
+  const s = getSession(); if(!s) return;
+  // Populate state from session
+  const match = SCHOOLS.find(sc=>sc.code===s.schoolCode);
+  schoolBuddyState.schoolCode = s.schoolCode||'';
+  schoolBuddyState.school     = match ? match.name : (s.name||'');
+  schoolBuddyState.partner    = match ? match.partner : '';
+  schoolBuddyState.grade=''; schoolBuddyState.section='';
+  schoolBuddyState.gradesAndSections=[]; schoolBuddyState.expectedGrades=[]; schoolBuddyState.teams=[];
+
+  // Show step 1, hide step 2
+  $('sbStep1').style.display='block'; $('sbStep2').style.display='none';
+  $('sbLoadingGrades').style.display='block';
+  $('sbGradeSecWrap').style.display='none'; $('sbNoGrades').style.display='none';
+
+  const url = getCfg().url;
+  try{
+    const r = await fetch(url+'?action=getSchoolGradesAndSections&schoolCode='+encodeURIComponent(s.schoolCode)+'&token='+encodeURIComponent(s.token));
+    const j = await r.json();
+    $('sbLoadingGrades').style.display='none';
+    schoolBuddyState.expectedGrades = j.expectedGrades || [];
+    if(j.status==='ok' && j.gradesAndSections && j.gradesAndSections.length){
+      schoolBuddyState.gradesAndSections = j.gradesAndSections;
+      const grades = [...new Set(j.gradesAndSections.map(g=>g.grade))];
+      $('sbGrade').innerHTML = '<option value="">Select grade…</option>' + grades.map(g=>`<option value="${escHtml(g)}">Grade ${escHtml(g)}</option>`).join('');
+      $('sbSection').innerHTML = '<option value="">Select section…</option>';
+      $('sbProceedBtn').disabled = true;
+      $('sbGradeSecWrap').style.display='block';
+    } else {
+      $('sbNoGrades').style.display='block';
+    }
+    sbRenderCoverage();
+  }catch(e){
+    $('sbLoadingGrades').style.display='none';
+    $('sbNoGrades').style.display='block';
+  }
+}
+
+function sbGradeChange(){
+  const grade = $('sbGrade').value;
+  $('sbProceedBtn').disabled = true;
+  if(!grade){ $('sbSection').innerHTML='<option value="">Select section…</option>'; return; }
+  const sections = schoolBuddyState.gradesAndSections.filter(g=>g.grade===grade).map(g=>g.section);
+  $('sbSection').innerHTML = '<option value="">Select section…</option>' + sections.map(s=>`<option value="${escHtml(s)}">${escHtml(s)}</option>`).join('');
+  sbSectionChange();
+}
+
+function sbSectionChange(){
+  $('sbProceedBtn').disabled = !($('sbGrade').value && $('sbSection').value);
+}
+
+function sbRenderCoverage(){
+  const el=$('sbCoverageInfo');
+  if(!el) return;
+  const expected=schoolBuddyState.expectedGrades;
+  const actual=schoolBuddyState.gradesAndSections;
+  if(!expected.length){ el.style.display='none'; return; }
+  let totalExpected=0, missingParts=[];
+  expected.forEach(({grade, sectionCount})=>{
+    totalExpected+=sectionCount;
+    const actualCount=actual.filter(a=>a.grade===String(grade)).length;
+    const missingCount=sectionCount-actualCount;
+    if(missingCount>0)
+      missingParts.push('Grade '+grade+' — '+missingCount+' section'+(missingCount>1?'s':''));
+  });
+  const totalActual=actual.length;
+  if(missingParts.length===0){
+    el.style.cssText='display:block;margin-top:14px;padding:10px 12px;border-radius:10px;font-size:13px;line-height:1.6;background:#f0fdf4;border:1px solid #86efac;color:#166534';
+    el.innerHTML='&#10003; All '+totalExpected+' grade-sections have Form 3 data.';
+  } else {
+    el.style.cssText='display:block;margin-top:14px;padding:10px 12px;border-radius:10px;font-size:13px;line-height:1.6;background:#fffbeb;border:1px solid #fcd34d;color:#92400e';
+    el.innerHTML='<strong>Form 3 coverage: '+totalActual+' of '+totalExpected+' grade-sections</strong><br>Missing data — '+missingParts.join(', ')+'.<br>Please ask IIF Team to fill Form 3 for these.';
+  }
+}
+
+async function sbProceed(){
+  schoolBuddyState.grade   = $('sbGrade').value;
+  schoolBuddyState.section = $('sbSection').value;
+  $('sbGradeSecLabel').textContent = 'Grade '+schoolBuddyState.grade+' · Section '+schoolBuddyState.section;
+  $('sbSchoolLabel').textContent   = schoolBuddyState.school+' ('+schoolBuddyState.schoolCode+')';
+  $('sbStep1').style.display='none'; $('sbStep2').style.display='block';
+  $('sbLoadingTeams').style.display='block'; $('sbTeamsList').innerHTML='';
+  $('sbGenerateBtn').disabled=true; $('sbDownloadAllBtn').style.display='none';
+  $('sbGenerateStatus').style.display='none';
+  window.scrollTo(0,0);
+
+  const s = getSession(), url = getCfg().url;
+  try{
+    const r = await fetch(url+'?action=getSchoolBuddyTeams'
+      +'&schoolCode='+encodeURIComponent(schoolBuddyState.schoolCode)
+      +'&grade='+encodeURIComponent(schoolBuddyState.grade)
+      +'&section='+encodeURIComponent(schoolBuddyState.section)
+      +'&token='+encodeURIComponent(s.token));
+    const j = await r.json();
+    $('sbLoadingTeams').style.display='none';
+    if(j.status==='ok'){
+      schoolBuddyState.teams = j.teams||[];
+      sbRenderTeams(schoolBuddyState.teams);
+    } else {
+      $('sbTeamsList').innerHTML='<div class="card preview warn">'+escHtml(j.message||'Error loading teams')+'</div>';
+    }
+  }catch(e){
+    $('sbLoadingTeams').style.display='none';
+    $('sbTeamsList').innerHTML='<div class="card preview warn">Could not reach server. Check connection.</div>';
+  }
+}
+
+function sbBack(){
+  // Stop any active recording
+  sbWaveCleanup();
+  if(sbMediaRecorder){ try{ sbMediaRecorder.onstop=null; sbMediaRecorder.stop(); }catch(e){} sbMediaRecorder=null; }
+  if(sbRecordingStream){ sbRecordingStream.getTracks().forEach(t=>t.stop()); sbRecordingStream=null; }
+  sbRecordingTeamCode=null; sbRecordedChunks=[];
+  $('sbStep2').style.display='none'; $('sbStep1').style.display='block';
+  window.scrollTo(0,0);
+}
+
+function sbRenderTeams(teams){
+  if(!teams.length){
+    $('sbTeamsList').innerHTML='<div class="card preview warn">No team data found for this grade &amp; section. Ensure Form 3 submission and student data extraction is complete.</div>';
+    return;
+  }
+  let html='';
+  teams.forEach((t,idx)=>{
+    const tc = escHtml(t.teamCode);
+    const statusClass = t.evalCount>0 ? 'sb-status-evaluated' : 'sb-status-none';
+    const statusText  = t.evalCount>0 ? 'Evaluated '+t.evalCount+' time'+(t.evalCount>1?'s':'') : 'Yet to submit idea';
+    const dlShow      = t.evalCount>0 ? 'inline-flex' : 'none';
+    const photoPreviewShow = 'none';
+    const photoSrc    = '';
+    html += `
+<div class="sb-team-card" id="sbCard-${tc}">
+  <div style="display:flex;align-items:flex-start;gap:10px">
+    <div style="flex:1;min-width:0">
+      <div style="font-weight:800;font-size:15px;color:var(--navy)">Team ${tc}</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:2px">SL: ${escHtml(t.slName||'—')} &nbsp;|&nbsp; Cluster ${escHtml(String(t.clusterId||'—'))}</div>
+      <div style="font-size:13px;margin-top:4px;color:var(--ink)">${escHtml((t.students||[]).join(', '))||'—'}</div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
+      <span id="sbStatus-${tc}" class="sb-status-badge ${statusClass}">${statusText}</span>
+      <button id="sbDlBtn-${tc}" style="display:${dlShow};align-items:center;gap:4px;background:none;border:1px solid var(--ok);color:var(--ok);border-radius:8px;padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer" onclick="sbDownloadTeamPDF('${tc}')" title="Download PDF">&darr; PDF</button>
+    </div>
+  </div>
+  <div style="margin-top:12px">
+    <div class="sb-section-label">Idea Photo</div>
+    <div class="sb-upload-row">
+      <label id="sbTakePhotoBtn-${tc}" class="sb-upload-btn" style="cursor:pointer"><span>&#128247; Take Photo</span><input type="file" accept="image/*" capture="environment" style="display:none" onchange="sbPhotoSelected('${tc}',this)"></label>
+      <label id="sbUploadImageBtn-${tc}" class="sb-upload-btn" style="cursor:pointer"><span>&#128444; Upload Image</span><input type="file" accept="image/*" style="display:none" onchange="sbPhotoSelected('${tc}',this)"></label>
+    </div>
+    <div id="sbPhotoWrap-${tc}" style="display:${photoPreviewShow};margin-top:8px">
+      <img id="sbPhotoImg-${tc}" src="${photoSrc}" style="width:100%;max-height:180px;object-fit:contain;border-radius:10px;border:1px solid var(--line)" />
+      <div id="sbPhotoStatus-${tc}" style="font-size:12px;color:var(--muted);margin-top:4px"></div>
+    </div>
+  </div>
+  <div style="margin-top:10px">
+    <div class="sb-section-label">Idea Audio <span style="font-weight:400;color:var(--muted)">(Optional)</span></div>
+    <div class="sb-upload-row" id="sbAudioRow-${tc}">
+      <div class="sb-upload-btn" id="sbRecordBtn-${tc}" onclick="sbToggleRecording('${tc}')" role="button" tabindex="0">&#127897; Record Audio</div>
+      <label id="sbUploadAudioBtn-${tc}" class="sb-upload-btn" style="cursor:pointer"><span>&#127925; Upload Audio</span><input type="file" accept="audio/*" style="display:none" onchange="sbAudioSelected('${tc}',this)"></label>
+    </div>
+    <div id="sbAudioStatus-${tc}" style="font-size:12px;color:var(--muted);margin-top:4px;display:none"></div>
+    <div id="sbWaveUI-${tc}" class="sb-wave-ui">
+      <div class="sb-wave-btn" onclick="sbDeleteRecording('${tc}')" title="Cancel">&#128465;</div>
+      <div class="sb-wave-dot" id="sbWaveDot-${tc}"></div>
+      <div class="sb-wave-timer" id="sbWaveTimer-${tc}">0:00</div>
+      <canvas id="sbWaveCanvas-${tc}" class="sb-wave-canvas"></canvas>
+      <div class="sb-wave-btn" id="sbPauseBtn-${tc}" onclick="sbPauseToggle('${tc}')" title="Pause">&#9646;&#9646;</div>
+      <div class="sb-wave-btn sb-wave-send" onclick="sbSendRecording('${tc}')" title="Send">&#9658;</div>
+    </div>
+  </div>
+</div>`;
+  });
+  $('sbTeamsList').innerHTML = html;
+  schoolBuddyState.teams.forEach(t=>sbUpdateTeamStatus(t.teamCode));
+  sbUpdateButtons();
+}
+
+function sbUpdateTeamStatus(teamCode){
+  const t = schoolBuddyState.teams.find(x=>x.teamCode===teamCode);
+  if(!t) return;
+  const statusEl = $('sbStatus-'+teamCode);
+  const dlEl     = $('sbDlBtn-'+teamCode);
+  if(!statusEl) return;
+  const hasLocal = !!(schoolBuddyState.localArtifacts[teamCode]?.photoBase64);
+  if(t.evalCount>0){
+    statusEl.className='sb-status-badge sb-status-evaluated';
+    statusEl.textContent='Evaluated '+t.evalCount+' time'+(t.evalCount>1?'s':'');
+    if(dlEl) dlEl.style.display='inline-flex';
+  } else if(hasLocal){
+    statusEl.className='sb-status-badge sb-status-uploaded';
+    statusEl.textContent='Photo ready';
+    if(dlEl) dlEl.style.display='none';
+  } else {
+    statusEl.className='sb-status-badge sb-status-none';
+    statusEl.textContent='Yet to submit idea';
+    if(dlEl) dlEl.style.display='none';
+  }
+}
+
+function sbUpdateButtons(){
+  const hasLocal = schoolBuddyState.teams.some(t=>schoolBuddyState.localArtifacts[t.teamCode]?.photoBase64);
+  const hasEval  = schoolBuddyState.teams.some(t=>t.evalCount>0);
+  $('sbGenerateBtn').disabled = !hasLocal;
+  $('sbDownloadAllBtn').style.display = hasEval ? 'block' : 'none';
+}
+
+async function sbPhotoSelected(teamCode, input){
+  const file = input.files[0]; if(!file) return;
+  const wrapEl=$('sbPhotoWrap-'+teamCode), imgEl=$('sbPhotoImg-'+teamCode), statusEl=$('sbPhotoStatus-'+teamCode);
+  const objectUrl = URL.createObjectURL(file);
+  if(imgEl) imgEl.src=objectUrl;
+  if(wrapEl) wrapEl.style.display='block';
+  if(statusEl) statusEl.textContent='Photo ready (not yet submitted)';
+  const base64 = await new Promise(res=>{
+    const reader=new FileReader();
+    reader.onload=e=>res(e.target.result.split(',')[1]);
+    reader.readAsDataURL(file);
+  });
+  if(!schoolBuddyState.localArtifacts[teamCode]) schoolBuddyState.localArtifacts[teamCode]={};
+  schoolBuddyState.localArtifacts[teamCode].photoBase64 = base64;
+  schoolBuddyState.localArtifacts[teamCode].photoMime   = file.type||'image/jpeg';
+  sbUpdateTeamStatus(teamCode);
+  sbUpdateButtons();
+  sbMarkPhotoReady(teamCode, input.hasAttribute('capture') ? 'take' : 'upload');
+}
+
+async function sbToggleRecording(teamCode){
+  if(sbRecordingTeamCode && sbRecordingTeamCode!==teamCode){
+    // Stop previous recording first
+    await sbStopRecording(sbRecordingTeamCode);
+  }
+  if(sbMediaRecorder && sbMediaRecorder.state==='recording'){
+    sbStopRecording(teamCode);
+  } else {
+    sbStartRecording(teamCode);
+  }
+}
+
+function sbWaveShow(teamCode, show){
+  const waveUI=$('sbWaveUI-'+teamCode), audioRow=$('sbAudioRow-'+teamCode);
+  if(waveUI) waveUI.style.display = show ? 'flex' : 'none';
+  if(audioRow) audioRow.style.display = show ? 'none' : 'flex';
+}
+
+function sbWaveCleanup(){
+  if(sbWaveAnimFrame){ cancelAnimationFrame(sbWaveAnimFrame); sbWaveAnimFrame=null; }
+  if(sbRecordTimer){ clearInterval(sbRecordTimer); sbRecordTimer=null; }
+  if(sbAudioCtx){ try{sbAudioCtx.close();}catch(e){} sbAudioCtx=null; sbAnalyser=null; }
+  sbRecordSecs=0;
+}
+
+function sbMarkPhotoReady(teamCode, which){
+  const take=$('sbTakePhotoBtn-'+teamCode), upload=$('sbUploadImageBtn-'+teamCode);
+  if(take){ take.classList.remove('sb-upload-ready'); take.querySelector('span').textContent='📷 Take Photo'; }
+  if(upload){ upload.classList.remove('sb-upload-ready'); upload.querySelector('span').textContent='🖼 Upload Image'; }
+  const active = which==='take' ? take : upload;
+  if(active){ active.classList.add('sb-upload-ready'); active.querySelector('span').textContent='✓ Image ready'; }
+}
+
+function sbMarkAudioReady(teamCode, which){
+  const rec=$('sbRecordBtn-'+teamCode), upload=$('sbUploadAudioBtn-'+teamCode);
+  if(rec){ rec.classList.remove('sb-upload-ready'); rec.innerHTML='🎤 Record Audio'; }
+  if(upload){ upload.classList.remove('sb-upload-ready'); if(upload.querySelector('span')) upload.querySelector('span').textContent='🎵 Upload Audio'; }
+  if(which==='record' && rec){ rec.classList.add('sb-upload-ready'); rec.innerHTML='✓ Recording ready'; }
+  if(which==='upload' && upload){ upload.classList.add('sb-upload-ready'); if(upload.querySelector('span')) upload.querySelector('span').textContent='✓ Audio ready'; }
+}
+
+function sbDrawWave(teamCode){
+  const canvas=$('sbWaveCanvas-'+teamCode);
+  if(!canvas||!sbAnalyser) return;
+  const W=canvas.offsetWidth||200, H=40;
+  canvas.width=W; canvas.height=H;
+  const ctx=canvas.getContext('2d');
+  const bufLen=sbAnalyser.frequencyBinCount;
+  const data=new Uint8Array(bufLen);
+  sbAnalyser.getByteFrequencyData(data);
+  ctx.clearRect(0,0,W,H);
+  const barW=3, gap=2, cols=Math.floor(W/(barW+gap));
+  const step=Math.max(1,Math.floor(bufLen/cols));
+  for(let i=0;i<cols;i++){
+    const val=(data[i*step]||0)/255;
+    const h=Math.max(3,val*H);
+    ctx.fillStyle='rgba(0,191,255,'+(0.35+val*0.65)+')';
+    ctx.fillRect(i*(barW+gap),(H-h)/2,barW,h);
+  }
+  sbWaveAnimFrame=requestAnimationFrame(()=>sbDrawWave(teamCode));
+}
+
+async function sbStartRecording(teamCode){
+  try{
+    sbRecordingStream = await navigator.mediaDevices.getUserMedia({audio:true});
+    sbRecordedChunks=[]; sbRecordingTeamCode=teamCode;
+    sbMediaRecorder=new MediaRecorder(sbRecordingStream);
+    sbMediaRecorder.ondataavailable=e=>{ if(e.data.size>0) sbRecordedChunks.push(e.data); };
+    sbMediaRecorder.onstop=async ()=>{
+      sbWaveCleanup();
+      sbWaveShow(teamCode, false);
+      const pb=$('sbPauseBtn-'+teamCode); if(pb) pb.innerHTML='&#9646;&#9646;';
+      const blob=new Blob(sbRecordedChunks,{type:'audio/webm'});
+      if(sbRecordingStream){ sbRecordingStream.getTracks().forEach(t=>t.stop()); sbRecordingStream=null; }
+      const statusEl=$('sbAudioStatus-'+teamCode);
+      if(statusEl){ statusEl.style.display='block'; statusEl.textContent='Converting…'; }
+      const base64=await new Promise(res=>{
+        const reader=new FileReader();
+        reader.onload=e=>res(e.target.result.split(',')[1]);
+        reader.readAsDataURL(blob);
+      });
+      if(!schoolBuddyState.localArtifacts[teamCode]) schoolBuddyState.localArtifacts[teamCode]={};
+      schoolBuddyState.localArtifacts[teamCode].audioBase64 = base64;
+      schoolBuddyState.localArtifacts[teamCode].audioMime   = 'audio/webm';
+      if(statusEl) statusEl.textContent='Audio ready (not yet submitted)';
+      sbMarkAudioReady(teamCode, 'record');
+      sbMediaRecorder=null; sbRecordingTeamCode=null; sbRecordedChunks=[];
+    };
+    sbMediaRecorder.start();
+    sbWaveShow(teamCode, true);
+    // Timer
+    sbRecordSecs=0;
+    const timerEl=$('sbWaveTimer-'+teamCode);
+    sbRecordTimer=setInterval(()=>{
+      sbRecordSecs++;
+      const m=Math.floor(sbRecordSecs/60), s=sbRecordSecs%60;
+      if(timerEl) timerEl.textContent=m+':'+(s<10?'0':'')+s;
+    },1000);
+    // Web Audio analyser
+    try{
+      sbAudioCtx=new(window.AudioContext||window.webkitAudioContext)();
+      sbAnalyser=sbAudioCtx.createAnalyser(); sbAnalyser.fftSize=128;
+      sbAudioCtx.createMediaStreamSource(sbRecordingStream).connect(sbAnalyser);
+      sbDrawWave(teamCode);
+    }catch(e){}
+  }catch(e){
+    toast('Microphone access denied or not available.');
+  }
+}
+
+function sbStopRecording(teamCode){
+  if(sbMediaRecorder&&(sbMediaRecorder.state==='recording'||sbMediaRecorder.state==='paused'))
+    sbMediaRecorder.stop();
+}
+
+function sbSendRecording(teamCode){
+  if(sbMediaRecorder&&(sbMediaRecorder.state==='recording'||sbMediaRecorder.state==='paused'))
+    sbMediaRecorder.stop();
+}
+
+function sbDeleteRecording(teamCode){
+  const wasRecording = !!sbMediaRecorder;
+  sbWaveCleanup();
+  if(sbMediaRecorder){ try{ sbMediaRecorder.onstop=null; sbMediaRecorder.stop(); }catch(e){} sbMediaRecorder=null; }
+  if(sbRecordingStream){ sbRecordingStream.getTracks().forEach(t=>t.stop()); sbRecordingStream=null; }
+  sbRecordingTeamCode=null; sbRecordedChunks=[];
+  sbWaveShow(teamCode, false);
+  const pb=$('sbPauseBtn-'+teamCode); if(pb) pb.innerHTML='&#9646;&#9646;';
+  sbMarkAudioReady(teamCode, null);
+  const statusEl=$('sbAudioStatus-'+teamCode);
+  if(statusEl){ statusEl.style.display='none'; statusEl.textContent=''; }
+}
+
+function sbPauseToggle(teamCode){
+  if(!sbMediaRecorder) return;
+  const btn=$('sbPauseBtn-'+teamCode), dot=$('sbWaveDot-'+teamCode);
+  if(sbMediaRecorder.state==='recording'){
+    sbMediaRecorder.pause();
+    if(sbWaveAnimFrame){ cancelAnimationFrame(sbWaveAnimFrame); sbWaveAnimFrame=null; }
+    if(sbRecordTimer){ clearInterval(sbRecordTimer); sbRecordTimer=null; }
+    if(btn) btn.innerHTML='&#9658;';
+    if(dot) dot.style.animationPlayState='paused';
+  } else if(sbMediaRecorder.state==='paused'){
+    sbMediaRecorder.resume();
+    sbRecordTimer=setInterval(()=>{
+      sbRecordSecs++;
+      const m=Math.floor(sbRecordSecs/60), s=sbRecordSecs%60;
+      const t=$('sbWaveTimer-'+teamCode); if(t) t.textContent=m+':'+(s<10?'0':'')+s;
+    },1000);
+    sbDrawWave(teamCode);
+    if(btn) btn.innerHTML='&#9646;&#9646;';
+    if(dot) dot.style.animationPlayState='running';
+  }
+}
+
+async function sbAudioSelected(teamCode, input){
+  const file=input.files[0]; if(!file) return;
+  const statusEl=$('sbAudioStatus-'+teamCode);
+  if(statusEl){ statusEl.style.display='block'; statusEl.textContent='Audio ready (not yet submitted)'; }
+  const base64=await new Promise(res=>{
+    const reader=new FileReader();
+    reader.onload=e=>res(e.target.result.split(',')[1]);
+    reader.readAsDataURL(file);
+  });
+  if(!schoolBuddyState.localArtifacts[teamCode]) schoolBuddyState.localArtifacts[teamCode]={};
+  schoolBuddyState.localArtifacts[teamCode].audioBase64 = base64;
+  schoolBuddyState.localArtifacts[teamCode].audioMime   = file.type||'audio/mpeg';
+  sbMarkAudioReady(teamCode, 'upload');
+}
+
+async function sbGenerateFeedback(){
+  const statusEl=$('sbGenerateStatus');
+  $('sbGenerateBtn').disabled=true;
+  $('sbDownloadAllBtn').disabled=true;
+  statusEl.style.display='block'; statusEl.style.color='var(--muted)';
+  const s=getSession(), url=getCfg().url;
+
+  // Step 1: Upload all local artifacts
+  const teamsToUpload = schoolBuddyState.teams.filter(
+    t=>schoolBuddyState.localArtifacts[t.teamCode]?.photoBase64
+  );
+  statusEl.textContent='Uploading ideas (0/'+teamsToUpload.length+')…';
+  let uploaded=0;
+  for(const t of teamsToUpload){
+    const art=schoolBuddyState.localArtifacts[t.teamCode];
+    try{
+      const rp=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body:JSON.stringify({
+          action:'saveIdeaArtifact', token:s.token,
+          schoolCode:schoolBuddyState.schoolCode, teamCode:t.teamCode,
+          grade:schoolBuddyState.grade, section:schoolBuddyState.section,
+          school:schoolBuddyState.school, partner:schoolBuddyState.partner,
+          slName:t.slName||'', clusterId:t.clusterId||'',
+          students:t.students||[], submittedBy:s.name||s.email||'',
+          artifactType:'photo', file:{data:art.photoBase64, mime:art.photoMime||'image/jpeg'}
+        })});
+      const jp=await rp.json();
+      if(jp.status==='ok'){
+        t.photoUrl=jp.fileUrl||'uploaded';
+        t.photoBase64=art.photoBase64;
+        t.photoMime=art.photoMime||'image/jpeg';
+        const ps=$('sbPhotoStatus-'+t.teamCode);
+        if(ps) ps.innerHTML='&#10003; Uploaded';
+      }
+      if(art.audioBase64){
+        const ra=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+          body:JSON.stringify({
+            action:'saveIdeaArtifact', token:s.token,
+            schoolCode:schoolBuddyState.schoolCode, teamCode:t.teamCode,
+            grade:schoolBuddyState.grade, section:schoolBuddyState.section,
+            school:schoolBuddyState.school, partner:schoolBuddyState.partner,
+            slName:t.slName||'', clusterId:t.clusterId||'',
+            students:t.students||[], submittedBy:s.name||s.email||'',
+            artifactType:'audio', file:{data:art.audioBase64, mime:art.audioMime||'audio/webm'}
+          })});
+        const ja=await ra.json();
+        if(ja.status==='ok') t.audioUrl=ja.fileUrl||'uploaded';
+      }
+    }catch(e){ /* non-fatal per team */ }
+    uploaded++;
+    statusEl.textContent='Uploading ideas ('+uploaded+'/'+teamsToUpload.length+')…';
+  }
+
+  // Step 2: Generate feedback only for the teams uploaded this session
+  const uploadedCodes = teamsToUpload.map(t => t.teamCode);
+  statusEl.textContent='Generating AI feedback… this may take a few minutes.';
+  try{
+    const r=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({
+        action:'generateSectionFeedback', token:s.token,
+        schoolCode:schoolBuddyState.schoolCode,
+        grade:schoolBuddyState.grade, section:schoolBuddyState.section,
+        partner:schoolBuddyState.partner,
+        teamCodes: uploadedCodes
+      })});
+    const j=await r.json();
+    if(j.status==='ok'){
+      const results=j.results||[];
+      results.forEach(res=>{
+        const team=schoolBuddyState.teams.find(x=>x.teamCode===res.teamCode);
+        if(team){ team.evalCount=res.evalCount; team.feedbackText=res.feedback; }
+        delete schoolBuddyState.localArtifacts[res.teamCode];
+        sbUpdateTeamStatus(res.teamCode);
+      });
+      sbUpdateButtons();
+      const n=results.length, errCount=(j.errors||[]).length;
+      let msg='&#10003; Feedback generated for '+n+' team'+(n!==1?'s':'');
+      if(errCount) msg+=' ('+errCount+' error'+(errCount>1?'s':'')+' — some teams may need retry)';
+      statusEl.style.color='var(--ok)'; statusEl.innerHTML=msg;
+    } else {
+      statusEl.style.color='var(--err)'; statusEl.textContent='Error: '+(j.message||'Generation failed');
+    }
+  }catch(e){
+    statusEl.style.color='var(--err)'; statusEl.textContent='Could not reach server. Check connection.';
+  }
+  $('sbGenerateBtn').disabled=false;
+  $('sbDownloadAllBtn').disabled=false;
+}
+
+// -------- PDF HELPERS (school buddy) --------
+
+function sbBuddyPDFHeader(doc, pageW){
+  doc.setFillColor(13,59,74);
+  doc.rect(0,0,pageW,28,'F');
+  doc.setFontSize(9); doc.setTextColor(0,191,255);
+  doc.text('THINK AND MAKE 2026-27',12,10);
+  doc.setFontSize(13); doc.setTextColor(255,255,255); doc.setFont(undefined,'bold');
+  doc.text('Inqui Buddy — Evaluation Report',12,20);
+  return 36;
+}
+
+function sbBuddyPDFFooter(doc, pageW, pageH, pageNum, totalPages){
+  doc.setFontSize(9); doc.setTextColor(130,130,130); doc.setFont(undefined,'normal');
+  doc.text('Inqui-Lab Foundation · Think & Make 2026-27',12,pageH-8);
+  doc.text('Page '+pageNum+' of '+totalPages,pageW-30,pageH-8);
+}
+
+function sbWrapText(doc, text, x, y, maxW, lineH, pageH, marginB, onNewPage){
+  const lines = doc.splitTextToSize(text, maxW);
+  for(let i=0;i<lines.length;i++){
+    if(y+lineH > pageH-marginB){ doc.addPage(); if(onNewPage) y=onNewPage(doc); else y=20; }
+    doc.text(lines[i], x, y); y+=lineH;
+  }
+  return y;
+}
+
+async function sbDownloadTeamPDF(teamCode){
+  const team = schoolBuddyState.teams.find(t=>t.teamCode===teamCode);
+  if(!team){ toast('Team not found.'); return; }
+  if(!team.feedbackText){ toast('No feedback generated yet for Team '+teamCode+'.'); return; }
+
+  const {jsPDF} = window.jspdf;
+  const doc = new jsPDF({unit:'mm',format:'a4'});
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const margin = 12;
+  let y = sbBuddyPDFHeader(doc, pageW);
+
+  // --- Page 1: Team Details ---
+  doc.setFontSize(13); doc.setTextColor(13,59,74); doc.setFont(undefined,'bold');
+  doc.text('Team Details',margin,y); y+=8;
+  doc.setFontSize(10); doc.setFont(undefined,'normal'); doc.setTextColor(40,40,40);
+  const details=[
+    ['School',schoolBuddyState.school+' ('+schoolBuddyState.schoolCode+')'],
+    ['Partner',schoolBuddyState.partner||'—'],
+    ['Grade & Section','Grade '+schoolBuddyState.grade+', Section '+schoolBuddyState.section],
+    ['Team Code',team.teamCode],
+    ['SL Name',team.slName||'—'],
+    ['Cluster ID',team.clusterId||'—'],
+    ['Students',(team.students||[]).join(', ')||'—'],
+  ];
+  details.forEach(([lbl,val])=>{
+    doc.setFont(undefined,'bold'); doc.text(lbl+':',margin,y);
+    doc.setFont(undefined,'normal');
+    const lines=doc.splitTextToSize(val,pageW-margin*2-32);
+    lines.forEach((ln,i)=>{ doc.text(ln,margin+32,y+(i*5)); });
+    y+=(lines.length*5)+2;
+    if(y>pageH-20){ doc.addPage(); sbBuddyPDFHeader(doc,pageW); y=36; }
+  });
+
+  // --- Page 2: Idea Photo ---
+  const localArt=schoolBuddyState.localArtifacts[teamCode];
+  const photoB64=localArt?.photoBase64||team.photoBase64;
+  const photoMime=localArt?.photoMime||team.photoMime||'image/jpeg';
+  if(photoB64){
+    doc.addPage(); sbBuddyPDFHeader(doc,pageW); y=36;
+    doc.setFontSize(13); doc.setTextColor(13,59,74); doc.setFont(undefined,'bold');
+    doc.text('Innovation Idea Submission',margin,y); y+=8;
+    try{
+      const dataUri='data:'+photoMime+';base64,'+photoB64;
+      const tmpImg=new Image();
+      await new Promise(res=>{ tmpImg.onload=res; tmpImg.onerror=res; tmpImg.src=dataUri; });
+      const canvas=document.createElement('canvas');
+      canvas.width=tmpImg.naturalWidth||800; canvas.height=tmpImg.naturalHeight||600;
+      canvas.getContext('2d').drawImage(tmpImg,0,0);
+      const jpegUrl=canvas.toDataURL('image/jpeg',0.85);
+      const imgW=pageW-margin*2;
+      const imgH=Math.min((canvas.height/canvas.width)*imgW,pageH-y-20);
+      doc.addImage(jpegUrl,'JPEG',margin,y,imgW,imgH);
+    }catch(e){ doc.setFontSize(10); doc.setFont(undefined,'normal'); doc.setTextColor(130,130,130); doc.text('(Image not available for PDF)',margin,y+10); }
+  } else if(team.photoUrl && team.photoUrl.startsWith('http')){
+    doc.addPage(); sbBuddyPDFHeader(doc,pageW); y=36;
+    doc.setFontSize(13); doc.setTextColor(13,59,74); doc.setFont(undefined,'bold');
+    doc.text('Innovation Idea Submission',margin,y); y+=8;
+    try{
+      const s=getSession(), cfgUrl=getCfg().url;
+      const r=await fetch(cfgUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body:JSON.stringify({
+          action:'getTeamPhoto', token:s.token,
+          schoolCode:schoolBuddyState.schoolCode, teamCode,
+          grade:schoolBuddyState.grade, partner:schoolBuddyState.partner
+        })});
+      const jr=await r.json();
+      if(jr.status!=='ok'||!jr.base64) throw new Error('no photo');
+      const dataUri='data:'+jr.mime+';base64,'+jr.base64;
+      const tmpImg=new Image();
+      await new Promise(res=>{ tmpImg.onload=res; tmpImg.onerror=res; tmpImg.src=dataUri; });
+      const canvas=document.createElement('canvas');
+      canvas.width=tmpImg.naturalWidth||800; canvas.height=tmpImg.naturalHeight||600;
+      canvas.getContext('2d').drawImage(tmpImg,0,0);
+      const jpegUrl=canvas.toDataURL('image/jpeg',0.85);
+      const imgW=pageW-margin*2;
+      const imgH=Math.min((canvas.height/canvas.width)*imgW,pageH-y-20);
+      doc.addImage(jpegUrl,'JPEG',margin,y,imgW,imgH);
+    }catch(e){
+      doc.setFontSize(10); doc.setFont(undefined,'normal'); doc.setTextColor(40,40,40);
+      doc.text('Idea photo uploaded. View at:',margin,y); y+=6;
+      doc.setTextColor(0,102,204);
+      const urlLines=doc.splitTextToSize(team.photoUrl,pageW-margin*2);
+      urlLines.forEach(ln=>{ doc.text(ln,margin,y); y+=5; });
+    }
+  }
+
+  // --- Page 3: Feedback ---
+  doc.addPage(); sbBuddyPDFHeader(doc,pageW); y=36;
+  doc.setFontSize(13); doc.setTextColor(13,59,74); doc.setFont(undefined,'bold');
+  doc.text('Mentor Feedback',margin,y); y+=10;
+  doc.setFontSize(10); doc.setFont(undefined,'normal'); doc.setTextColor(40,40,40);
+  y = sbWrapText(doc, team.feedbackText, margin, y, pageW-margin*2, 5.5, pageH, 20,
+    (d)=>{ sbBuddyPDFHeader(d,pageW); return 36; });
+
+  // Footers on all pages
+  const totalPages=doc.getNumberOfPages();
+  for(let p=1;p<=totalPages;p++){ doc.setPage(p); sbBuddyPDFFooter(doc,pageW,pageH,p,totalPages); }
+
+  const date=new Date().toISOString().slice(0,10).replace(/-/g,'');
+  doc.save('InquiBuddy_'+schoolBuddyState.schoolCode+'_Team'+teamCode+'_'+date+'.pdf');
+}
+
+async function sbDownloadAllPDF(){
+  const evaluated=schoolBuddyState.teams.filter(t=>t.evalCount>0);
+  if(!evaluated.length){ toast('No evaluations generated yet.'); return; }
+
+  const {jsPDF} = window.jspdf;
+  const doc = new jsPDF({unit:'mm',format:'a4'});
+  const pageW=doc.internal.pageSize.getWidth();
+  const pageH=doc.internal.pageSize.getHeight();
+  const margin=12;
+  let firstPage=true;
+
+  // Cover page
+  sbBuddyPDFHeader(doc,pageW);
+  let y=40;
+  doc.setFontSize(14); doc.setTextColor(13,59,74); doc.setFont(undefined,'bold');
+  doc.text('All Teams Feedback Report',margin,y); y+=8;
+  doc.setFontSize(10); doc.setFont(undefined,'normal'); doc.setTextColor(40,40,40);
+  doc.text('School: '+schoolBuddyState.school+' ('+schoolBuddyState.schoolCode+')', margin,y); y+=6;
+  doc.text('Grade '+schoolBuddyState.grade+', Section '+schoolBuddyState.section, margin,y); y+=6;
+  doc.text('Generated: '+new Date().toLocaleString(), margin,y); y+=6;
+  doc.text('Total teams: '+schoolBuddyState.teams.length+' | Evaluated: '+evaluated.length, margin,y);
+
+  // Each team
+  schoolBuddyState.teams.forEach(team=>{
+    doc.addPage(); sbBuddyPDFHeader(doc,pageW); y=36;
+    doc.setFontSize(12); doc.setTextColor(13,59,74); doc.setFont(undefined,'bold');
+    doc.text('Team '+team.teamCode,margin,y); y+=7;
+    doc.setFontSize(10); doc.setFont(undefined,'normal'); doc.setTextColor(40,40,40);
+    doc.text('SL: '+(team.slName||'—')+'  |  Cluster: '+(team.clusterId||'—'),margin,y); y+=5;
+    const stLine=doc.splitTextToSize('Students: '+((team.students||[]).join(', ')||'—'), pageW-margin*2);
+    stLine.forEach(ln=>{ doc.text(ln,margin,y); y+=5; });
+    y+=3;
+    if(!team.feedbackText){
+      doc.setTextColor(130,130,130); doc.setFont(undefined,'italic');
+      doc.text('Yet to submit idea.',margin,y);
+    } else {
+      doc.setFont(undefined,'normal'); doc.setTextColor(40,40,40);
+      y=sbWrapText(doc,team.feedbackText,margin,y,pageW-margin*2,5.5,pageH,20,
+        (d)=>{ sbBuddyPDFHeader(d,pageW); return 36; });
+    }
+  });
+
+  const totalPages=doc.getNumberOfPages();
+  for(let p=1;p<=totalPages;p++){ doc.setPage(p); sbBuddyPDFFooter(doc,pageW,pageH,p,totalPages); }
+
+  const date=new Date().toISOString().slice(0,10).replace(/-/g,'');
+  doc.save('InquiBuddy_'+schoolBuddyState.schoolCode+'_Gr'+schoolBuddyState.grade+schoolBuddyState.section+'_AllTeams_'+date+'.pdf');
 }
 
 /* ---------- boot ---------- */

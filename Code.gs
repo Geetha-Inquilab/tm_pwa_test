@@ -39,11 +39,12 @@ var FORM_SCHEMAS = {
     ]
   },
   form3_student_data: {
-    tabName: 'Form3_StudentData',
+    tabName: 'Students_Count_Info',
     columns: [
       'Submission ID', 'Submitted At', 'Form Version', 'Status',
-      'Partner', 'School', 'School Code', 'Grade', 'Section',
-      'Total Students', 'Photo URL', 'Photo2 URL'
+      'School', 'School Code', 'Grade', 'Section',
+      'Total SL', 'Total Clusters', 'Total Teams',
+      'Total Students', 'Teams Info Photo', 'Extraction Status', 'Count Validation', 'Student Database'
     ]
   },
   form4_sl_selection: {
@@ -105,12 +106,13 @@ function doGet(e) {
     return json({ status: 'error', message: 'Unauthorised' });
   }
 
-  if (action === 'schoolData')      return handleSchoolData(p);
-  if (action === 'allSchoolStatus') return handleAllSchoolStatus(p);
-  if (action === 'formData')        return handleFormData(p);
-  if (action === 'listUsers')       return handleListUsers(p);
-  if (action === 'getTeamData')     return handleGetTeamData(p);
-  if (action === 'getSchoolSummary') return handleGetSchoolSummary(p);
+  if (action === 'schoolData')          return handleSchoolData(p);
+  if (action === 'allSchoolStatus')     return handleAllSchoolStatus(p);
+  if (action === 'formData')            return handleFormData(p);
+  if (action === 'listUsers')           return handleListUsers(p);
+  if (action === 'getTeamData')         return handleGetTeamData(p);
+  if (action === 'getSchoolSummary')    return handleGetSchoolSummary(p);
+  if (action === 'allForm3Submissions') return handleAllForm3Submissions(p);
 
   return json({ status: 'ok', message: 'TM form backend live' });
 }
@@ -536,10 +538,25 @@ function uploadPhotos(payload, ss, partner, partnerSS) {
     if (url) updatePhotoUrl(targetSS, FORM_SCHEMAS[payload.formId], payload.submissionId, 'School Photo URL', url);
   }
   if (payload.formId === 'form3_student_data') {
-    var u1 = upload(payload.photo, 'f3_' + payload.submissionId + '_1.jpg');
-    var u2 = upload(payload.photo2, 'f3_' + payload.submissionId + '_2.jpg');
-    if (u1) updatePhotoUrl(targetSS, FORM_SCHEMAS[payload.formId], payload.submissionId, 'Photo URL', u1);
-    if (u2) updatePhotoUrl(targetSS, FORM_SCHEMAS[payload.formId], payload.submissionId, 'Photo2 URL', u2);
+    var sc3  = ((payload.header||{}).schoolCode||'SCH').replace(/[^a-zA-Z0-9]/g,'');
+    var gr3  = ((payload.header||{}).grade||'').replace(/[^a-zA-Z0-9]/g,'');
+    var sec3 = ((payload.header||{}).section||'').toUpperCase().replace(/[^a-zA-Z0-9]/g,'');
+    var u1 = upload(payload.photo, sc3+'_'+gr3+sec3+'_TeamsInfo.jpg');
+    if (u1) {
+      updatePhotoUrl(targetSS, FORM_SCHEMAS[payload.formId], payload.submissionId, 'Teams Info Photo', u1);
+      var photoBase64 = payload.photo ? (payload.photo.data || payload.photo) : null;
+      if (photoBase64) {
+        var partnerFolderId3 = null;
+        if (partner) {
+          try {
+            var pCfg3 = getPartnerConfig(ss);
+            var pEntry3 = pCfg3[partner];
+            if (pEntry3 && pEntry3.folderId) partnerFolderId3 = pEntry3.folderId;
+          } catch(e) {}
+        }
+        extractStudentDataFromPhoto(photoBase64, u1, payload, targetSS, partner, partnerFolderId3);
+      }
+    }
   }
 }
 
@@ -570,7 +587,7 @@ function getOrCreatePartnerConfigTab(ss) {
   var sheet = ss.getSheetByName('PartnerConfig');
   if (!sheet) {
     sheet = ss.insertSheet('PartnerConfig');
-    var cols = ['PartnerName', 'FolderID', 'SheetID'];
+    var cols = ['PartnerName', 'FolderID', 'SheetID', 'StudentDbSheetId'];
     sheet.appendRow(cols);
     sheet.getRange(1, 1, 1, cols.length).setFontWeight('bold').setBackground('#0D3B4A').setFontColor('#FFFFFF');
     sheet.setFrozenRows(1);
@@ -581,13 +598,19 @@ function getOrCreatePartnerConfigTab(ss) {
 function getPartnerConfig(ss) {
   var sheet = getOrCreatePartnerConfigTab(ss);
   var data = sheet.getDataRange().getValues();
+  if (data.length < 1) return {};
+  var header = data[0].map(function(h) { return String(h).trim(); });
+  var folderIdx    = header.indexOf('FolderID');         if (folderIdx < 0)   folderIdx = 1;
+  var sheetIdx     = header.indexOf('SheetID');          if (sheetIdx < 0)    sheetIdx = 2;
+  var studentDbIdx = header.indexOf('StudentDbSheetId'); // -1 if column not yet added
   var config = {};
   for (var i = 1; i < data.length; i++) {
     var name = String(data[i][0] || '').trim();
     if (!name) continue;
     config[name] = {
-      folderId: String(data[i][1] || '').trim(),
-      sheetId:  String(data[i][2] || '').trim()
+      folderId:         String(data[i][folderIdx] || '').trim(),
+      sheetId:          String(data[i][sheetIdx]  || '').trim(),
+      studentDbSheetId: studentDbIdx >= 0 ? String(data[i][studentDbIdx] || '').trim() : ''
     };
   }
   return config;
@@ -599,6 +622,23 @@ function updatePartnerSheetId(ss, partnerName, sheetId) {
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][0] || '').trim() === partnerName) {
       sheet.getRange(i + 1, 3).setValue(sheetId);
+      return;
+    }
+  }
+}
+
+function updatePartnerStudentDbId(ss, partnerName, sheetId) {
+  var sheet = getOrCreatePartnerConfigTab(ss);
+  var data = sheet.getDataRange().getValues();
+  var header = data[0].map(function(h) { return String(h).trim(); });
+  var colIdx = header.indexOf('StudentDbSheetId');
+  if (colIdx < 0) {
+    colIdx = header.length;
+    sheet.getRange(1, colIdx + 1).setValue('StudentDbSheetId');
+  }
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0] || '').trim() === partnerName) {
+      sheet.getRange(i + 1, colIdx + 1).setValue(sheetId);
       return;
     }
   }
@@ -701,10 +741,243 @@ function buildRowForm3(p) {
   return {
     'Submission ID':p.submissionId||'','Submitted At':p.submittedAt||new Date().toISOString(),
     'Form Version':p.formVersion||'','Status':p.isEdit?'edited':'active',
-    'Partner':h.partner||'','School':h.school||'','School Code':h.schoolCode||'',
-    'Grade':h.grade||'','Section':h.section||'',
-    'Total Students':p.total||0,'Photo URL':'','Photo2 URL':''
+    'School':h.school||'','School Code':h.schoolCode||'',
+    'Grade':h.grade||'','Section':(h.section||'').toUpperCase(),
+    'Total SL':p.totalSL||0,'Total Clusters':p.totalClusters||0,'Total Teams':p.totalTeams||0,
+    'Total Students':p.total||0,'Teams Info Photo':'','Extraction Status':'','Count Validation':'','Student Database':''
   };
+}
+
+function handleAllForm3Submissions(p) {
+  var schoolCode = (p.schoolCode || '').trim().toUpperCase();
+  if (!schoolCode) return json({ status: 'error', message: 'schoolCode required' });
+  var ss = getSheet();
+  var partnerName = getPartnerForSchool(ss, schoolCode);
+  var targetSS = partnerName ? getOrCreatePartnerSheet(partnerName, ss) : ss;
+  var schema = FORM_SCHEMAS['form3_student_data'];
+  var sheet = targetSS.getSheetByName(schema.tabName);
+  if (!sheet) return json({ status: 'ok', submissions: [] });
+  var data = sheet.getDataRange().getValues();
+  var header = data[0];
+  var scIdx = header.indexOf('School Code');
+  var statusIdx = header.indexOf('Status');
+  var submissions = [];
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][scIdx]).trim().toUpperCase() !== schoolCode) continue;
+    if (statusIdx >= 0 && String(data[i][statusIdx]).toLowerCase() === 'superseded') continue;
+    var obj = {};
+    header.forEach(function(col, idx) { obj[col] = data[i][idx]; });
+    submissions.push(obj);
+  }
+  return json({ status: 'ok', submissions: submissions });
+}
+
+// -------- STUDENT DATABASE EXTRACTION --------
+
+function getOrCreateStudentDbSheet(partnerName, partnerFolderId) {
+  var ss = getSheet();
+  if (partnerName) {
+    var config = getPartnerConfig(ss);
+    var entry = config[partnerName];
+    if (entry && entry.studentDbSheetId) {
+      try { return SpreadsheetApp.openById(entry.studentDbSheetId); } catch(e) {}
+    }
+    var newSS = SpreadsheetApp.create(partnerName + ' - TM Student Database');
+    if (partnerFolderId) {
+      try {
+        var file = DriveApp.getFileById(newSS.getId());
+        DriveApp.getFolderById(partnerFolderId).addFile(file);
+        DriveApp.getRootFolder().removeFile(file);
+      } catch(e) { Logger.log('Could not move student DB sheet: ' + e.message); }
+    }
+    updatePartnerStudentDbId(ss, partnerName, newSS.getId());
+    return newSS;
+  }
+  // Non-partner fallback: Config tab
+  var configSheet = ss.getSheetByName('Config');
+  if (!configSheet) {
+    configSheet = ss.insertSheet('Config');
+    configSheet.appendRow(['Key', 'Value']);
+    configSheet.setFrozenRows(1);
+  }
+  var data = configSheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === 'StudentDbSheetId' && data[i][1]) {
+      try { return SpreadsheetApp.openById(String(data[i][1])); } catch(e) {}
+    }
+  }
+  var newSS2 = SpreadsheetApp.create('TM Student Database');
+  configSheet.appendRow(['StudentDbSheetId', newSS2.getId()]);
+  return newSS2;
+}
+
+function getOrCreateSchoolTab(dbSS, schoolCode, schoolName) {
+  var tabName = (schoolCode || schoolName || 'School').replace(/[^a-zA-Z0-9_\- ]/g, '_').substring(0, 100).trim();
+  var sheet = dbSS.getSheetByName(tabName);
+  if (!sheet) {
+    sheet = dbSS.insertSheet(tabName);
+    var defaultSheet = dbSS.getSheetByName('Sheet1');
+    if (defaultSheet) { try { dbSS.deleteSheet(defaultSheet); } catch(e) {} }
+    var header = ['School Code','School Name','Grade','Section','Cluster ID','SL ID','SL Name','Team ID','Team Code','Student Name','Gender','Extracted At','Source Photo URL'];
+    sheet.appendRow(header);
+    sheet.setFrozenRows(1);
+    sheet.getRange(1, 1, 1, header.length).setBackground('#0D3B4A').setFontColor('#ffffff').setFontWeight('bold');
+  }
+  return sheet;
+}
+
+function extractStudentDataFromPhoto(photoBase64, photoUrl, payload, targetSS, partnerName, partnerFolderId) {
+  var schema = FORM_SCHEMAS['form3_student_data'];
+  var submissionId = payload.submissionId || '';
+  var h = payload.header || {};
+  var grade = String(h.grade || '');
+  var section = (h.section || '').toUpperCase();
+  var schoolCode = (h.schoolCode || '').trim().toUpperCase();
+  var schoolName = h.school || '';
+
+  function setStatus(val) {
+    updatePhotoUrl(targetSS, schema, submissionId, 'Extraction Status', val);
+  }
+
+  setStatus('In Progress');
+  var _schemaSheet = targetSS.getSheetByName(schema.tabName);
+  if (_schemaSheet) ensureSchemaColumns(_schemaSheet, schema);
+  try {
+    var extractPrompt = [
+      { role: 'system', content: 'You are an expert at extracting structured data from handwritten Indian school student database sheets.\n\nThe image shows a student database sheet with columns including: School Code, Section, Cluster (number), SL ID (sequential like S1 or 1), SL Name, Team # (sequential like T1/T2/T3), Team Code (alphanumeric like TM26DA6A11), Student Name, Gender (M/F).\n\nExtract ALL SL blocks, their cluster numbers, the teams within each cluster, and all student details.\n\nReturn ONLY valid JSON (no markdown, no explanation) in this exact format:\n[\n  {\n    "sl_id": "SL ID or number (e.g. S1, 1)",\n    "sl_name": "Name of Student Leader",\n    "cluster_id": "Cluster number (e.g. 1, 2, 3)",\n    "grade": "Grade number if visible, else empty string",\n    "section": "Section letter if visible, else empty string",\n    "teams": [\n      {\n        "team_number": "Sequential team ID (e.g. T1, T2)",\n        "team_code": "Alphanumeric Team Code (e.g. TM26DA6A11)",\n        "students": [\n          { "name": "Student Name", "gender": "M or F or empty" }\n        ]\n      }\n    ]\n  }\n]\n\nExtract every SL block visible on the page.' },
+      { role: 'user', content: [
+        { type: 'text', text: 'Extract all SL, cluster, team, and student data from this student database sheet.' },
+        { type: 'image_url', image_url: { url: 'data:image/jpeg;base64,' + photoBase64 } }
+      ]}
+    ];
+
+    var rawResult = callGemini(extractPrompt, 'gemini-2.5-flash', false);
+    var cleaned = rawResult.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    var slBlocks = JSON.parse(cleaned);
+    if (!Array.isArray(slBlocks)) throw new Error('Gemini returned non-array');
+
+    var rows = [];
+    var now = new Date().toISOString();
+    slBlocks.forEach(function(slBlock) {
+      var slId      = String(slBlock.sl_id || '').trim();
+      var slName    = String(slBlock.sl_name || '').trim();
+      var clusterId = String(slBlock.cluster_id || '').trim();
+      var imgGrade  = String(slBlock.grade || grade).trim();
+      var imgSec    = String(slBlock.section || section).trim().toUpperCase();
+      (slBlock.teams || []).forEach(function(team) {
+        var teamNum  = String(team.team_number || '').trim();
+        var teamCode = String(team.team_code || '').trim();
+        (team.students || []).forEach(function(student) {
+          var name   = typeof student === 'object' ? String(student.name || '') : String(student);
+          var gender = typeof student === 'object' ? String(student.gender || '') : '';
+          rows.push([schoolCode, schoolName, imgGrade, imgSec, clusterId, slId, slName, teamNum, teamCode, name.trim(), gender.trim(), now, photoUrl]);
+        });
+      });
+    });
+
+    var dbSS = getOrCreateStudentDbSheet(partnerName, partnerFolderId);
+    var schoolTab = getOrCreateSchoolTab(dbSS, schoolCode, schoolName);
+
+    // Remove existing rows for this grade+section
+    var existing = schoolTab.getDataRange().getValues();
+    var toDelete = [];
+    for (var i = existing.length - 1; i >= 1; i--) {
+      if (String(existing[i][2]) === grade && String(existing[i][3]) === section) toDelete.push(i + 1);
+    }
+    toDelete.forEach(function(r) { schoolTab.deleteRow(r); });
+
+    if (rows.length > 0) {
+      schoolTab.getRange(schoolTab.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
+    }
+
+    var tabUrl = 'https://docs.google.com/spreadsheets/d/' + dbSS.getId() + '/edit#gid=' + schoolTab.getSheetId();
+    updatePhotoUrl(targetSS, schema, submissionId, 'Student Database', tabUrl);
+    setStatus('Done (' + rows.length + ' students)');
+    var enteredTotal = Number(payload.total || 0);
+    var countValidation = (enteredTotal > 0 && enteredTotal === rows.length)
+      ? 'Counts matched'
+      : 'Counts mismatch - Needs validation';
+    updatePhotoUrl(targetSS, schema, submissionId, 'Count Validation', countValidation);
+    return tabUrl;
+  } catch(e) {
+    Logger.log('extractStudentDataFromPhoto error: ' + e.message);
+    setStatus('Error: ' + e.message.substring(0, 120));
+    updatePhotoUrl(targetSS, schema, submissionId, 'Count Validation', 'Extraction error - Needs validation');
+    return null;
+  }
+}
+
+// -------- RE-EXTRACT FAILED (called from Apps Script menu) --------
+
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu('TM Tools')
+    .addItem('Re-extract failed student data', 'reExtractFailed')
+    .addToUi();
+}
+
+function reExtractFailed() {
+  var ss = getSheet();
+  var sheet = ss.getSheetByName('Students_Count_Info');
+  if (!sheet) { SpreadsheetApp.getUi().alert('Students_Count_Info tab not found.'); return; }
+  var data = sheet.getDataRange().getValues();
+  var header = data[0];
+  var statusIdx = header.indexOf('Extraction Status');
+  var photoIdx  = header.indexOf('Teams Info Photo');
+  var subIdIdx  = header.indexOf('Submission ID');
+  var schoolIdx = header.indexOf('School');
+  var codeIdx   = header.indexOf('School Code');
+  var gradeIdx  = header.indexOf('Grade');
+  var secIdx    = header.indexOf('Section');
+  var totalStudentsIdx = header.indexOf('Total Students');
+  if (statusIdx < 0 || photoIdx < 0) { SpreadsheetApp.getUi().alert('Required columns not found.'); return; }
+
+  var count = 0;
+  for (var i = 1; i < data.length; i++) {
+    var status = String(data[i][statusIdx] || '');
+    if (!status.startsWith('Error') && status !== 'In Progress') continue;
+    var photoUrl = String(data[i][photoIdx] || '');
+    if (!photoUrl) continue;
+    var fileId = null;
+    try {
+      var m = photoUrl.match(/\/d\/([a-zA-Z0-9_-]+)\//);
+      if (!m) m = photoUrl.match(/id=([a-zA-Z0-9_-]+)/);
+      if (m) fileId = m[1];
+    } catch(e) {}
+    if (!fileId) continue;
+
+    var imageBase64 = null;
+    var imageMime = 'image/jpeg';
+    try {
+      var file = DriveApp.getFileById(fileId);
+      imageMime = file.getMimeType() || 'image/jpeg';
+      imageBase64 = Utilities.base64Encode(file.getBlob().getBytes());
+    } catch(e) { continue; }
+
+    var fakePayload = {
+      submissionId: String(data[i][subIdIdx] || ''),
+      header: {
+        school: String(data[i][schoolIdx] || ''),
+        schoolCode: String(data[i][codeIdx] || ''),
+        grade: String(data[i][gradeIdx] || ''),
+        section: String(data[i][secIdx] || '')
+      },
+      total: totalStudentsIdx >= 0 ? Number(data[i][totalStudentsIdx] || 0) : 0
+    };
+    var partnerName = getPartnerForSchool(ss, fakePayload.header.schoolCode);
+    var targetSS = partnerName ? getOrCreatePartnerSheet(partnerName, ss) : ss;
+    var reFolderId = null;
+    if (partnerName) {
+      try {
+        var reCfg = getPartnerConfig(ss);
+        var reEntry = reCfg[partnerName];
+        if (reEntry && reEntry.folderId) reFolderId = reEntry.folderId;
+      } catch(e) {}
+    }
+    extractStudentDataFromPhoto(imageBase64, photoUrl, fakePayload, targetSS, partnerName, reFolderId);
+    count++;
+  }
+  SpreadsheetApp.getUi().alert('Re-extraction done for ' + count + ' row(s). Check Extraction Status column.');
 }
 
 function buildRowForm4(p) {
@@ -739,6 +1012,23 @@ function getSheet() {
   return SHEET_ID ? SpreadsheetApp.openById(SHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
 }
 
+function ensureSchemaColumns(sheet, schema) {
+  var existingHeader = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  schema.columns.forEach(function(col, idx) {
+    if (existingHeader.indexOf(col) >= 0) return;
+    if (idx >= existingHeader.length) {
+      sheet.getRange(1, existingHeader.length + 1).setValue(col);
+      existingHeader.push(col);
+    } else {
+      sheet.insertColumnBefore(idx + 1);
+      sheet.getRange(1, idx + 1).setValue(col);
+      existingHeader.splice(idx, 0, col);
+    }
+    sheet.getRange(1, existingHeader.indexOf(col) + 1)
+      .setFontWeight('bold').setBackground('#0D3B4A').setFontColor('#FFFFFF');
+  });
+}
+
 function getOrCreateTab(ss, schema) {
   var sheet = ss.getSheetByName(schema.tabName);
   if (!sheet) {
@@ -747,6 +1037,8 @@ function getOrCreateTab(ss, schema) {
     var header = sheet.getRange(1, 1, 1, schema.columns.length);
     header.setFontWeight('bold').setBackground('#0D3B4A').setFontColor('#FFFFFF');
     sheet.setFrozenRows(1);
+  } else {
+    ensureSchemaColumns(sheet, schema);
   }
   return sheet;
 }

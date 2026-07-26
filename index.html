@@ -132,6 +132,8 @@
   .buddy-feedback{white-space:pre-wrap;font-size:14px;line-height:1.75;color:var(--ink)}
   .buddy-spinner{display:inline-block;width:36px;height:36px;border:4px solid var(--line);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite;margin-bottom:12px}
   @keyframes spin{to{transform:rotate(360deg)}}
+  .photo-option-btn{flex:1;padding:12px 8px;border:1.5px solid var(--navy);border-radius:10px;background:#fff;cursor:pointer;font-weight:600;font-size:13px;transition:background .15s,color .15s,opacity .15s}
+  .photo-option-btn:disabled{opacity:.35;cursor:not-allowed}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
@@ -377,34 +379,77 @@
   <button class="btn-submit" id="submit2Btn">Submit</button>
 </footer>
 
-<!-- FORM 3 SCREEN: Student Data Collection -->
+<!-- FORM 3 SCREEN: Students Count Info -->
 <main id="app3" style="display:none">
   <div class="banner" id="offlineBanner3">You're offline. Submissions will queue and send when you reconnect.</div>
   <div class="card">
-    <div class="sec-title"><span class="tag">F3</span> Student data collection</div>
+    <div class="sec-title"><span class="tag">F3</span> Students Count Info</div>
     <label>Partner <span class="req">*</span></label>
     <select id="f3partner"><option value="">Select…</option></select>
     <label>School <span class="req">*</span></label>
     <select id="f3school"><option value="">Select partner first…</option></select>
     <label>School Code</label>
     <input id="f3code" placeholder="auto-filled" readonly style="background:var(--pastel)" />
-    <label>Grade <span class="req">*</span></label>
-    <select id="f3grade"><option value="">Select…</option><option>6</option><option>7</option><option>8</option></select>
-    <label>Section <span class="req">*</span></label>
-    <input id="f3section" placeholder="e.g. A" />
-    <label>Total student count <span class="req">*</span></label>
-    <input id="f3total" type="number" min="1" max="200" inputmode="numeric" />
-    <label>Teams-formation page photo <span class="req">*</span></label>
-    <input id="f3photo" type="file" accept="image/*" capture="environment" />
-    <div class="hint">Photo of the teams-formation format pasted in the classroom. Saved to Drive; a link is stored in the sheet.</div>
-    <label>Second page photo <span style="color:var(--muted);font-weight:400">(optional)</span></label>
-    <input id="f3photo2" type="file" accept="image/*" capture="environment" />
-    <div class="hint">Use only if the teams list runs onto a second page (many teams).</div>
+
+    <div id="f3loader" style="display:none;text-align:center;padding:20px 0">
+      <span class="buddy-spinner" style="width:24px;height:24px;border-width:3px;margin-bottom:6px"></span>
+      <div style="font-size:12px;color:var(--muted)">Checking school data…</div>
+    </div>
+
+    <div id="f3form2block" style="display:none;margin-top:14px;padding:14px;background:#FFF3CD;border-radius:10px;border:1px solid #FFD700">
+      <b style="color:#856404">&#9888; Form 2 not yet submitted for this school.</b>
+      <p style="margin:6px 0 0;font-size:13px;color:#856404">Please fill <b>Form 2 · Schools Contact Info</b> first before filling this form.</p>
+      <button type="button" onclick="showScreen('form2')" style="margin-top:10px;padding:8px 16px;background:#0D3B4A;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">Go to Form 2 →</button>
+    </div>
+
+    <div id="f3body" style="display:none">
+      <!-- Submission progress tracker -->
+      <div id="f3tracker" style="display:none;margin-top:14px;padding:12px 14px;background:#F0F9FF;border-radius:10px;border:1px solid #BAE6FD">
+        <div style="font-weight:700;font-size:13px;margin-bottom:10px;color:var(--navy)">Sections submitted so far</div>
+        <div id="f3trackerBody"></div>
+      </div>
+
+      <div id="f3formFields">
+        <label style="margin-top:14px">Grade <span class="req">*</span></label>
+        <div class="chips" id="f3grades"></div>
+        <label>Section <span class="req">*</span></label>
+        <input id="f3section" placeholder="e.g. A" style="text-transform:uppercase" />
+        <div class="row2">
+          <div>
+            <label>Total SL <span class="req">*</span></label>
+            <input id="f3totalSL" type="number" min="0" max="200" inputmode="numeric" placeholder="0" />
+          </div>
+          <div>
+            <label>Total Clusters <span class="req">*</span></label>
+            <input id="f3totalClusters" type="number" min="0" max="200" inputmode="numeric" placeholder="0" />
+          </div>
+        </div>
+        <div class="row2">
+          <div>
+            <label>Total Teams <span class="req">*</span></label>
+            <input id="f3totalTeams" type="number" min="0" max="200" inputmode="numeric" placeholder="0" />
+          </div>
+          <div>
+            <label>Total Students <span class="req">*</span></label>
+            <input id="f3total" type="number" min="1" max="200" inputmode="numeric" placeholder="0" />
+          </div>
+        </div>
+        <label>Teams Info Photo <span class="req">*</span></label>
+        <div style="display:flex;gap:10px;margin-top:6px">
+          <button type="button" id="f3btnChoose" class="photo-option-btn" onclick="$('f3photoFile').click()">📁 Choose File</button>
+          <button type="button" id="f3btnCapture" class="photo-option-btn" onclick="$('f3photoCapture').click()">📷 Take Photo</button>
+        </div>
+        <input id="f3photoFile" type="file" accept="image/*" style="display:none" onchange="f3PhotoSelected('file')" />
+        <input id="f3photoCapture" type="file" accept="image/*" capture="environment" style="display:none" onchange="f3PhotoSelected('capture')" />
+        <div id="f3photoName" style="font-size:12px;color:var(--muted);margin-top:4px;min-height:16px"></div>
+        <div class="hint">Photo of the teams-formation sheet. Saved to Drive; a link is stored in the sheet.</div>
+      </div>
+    </div>
   </div>
 </main>
 
 <footer id="footer3" style="display:none">
-  <button class="btn-submit" id="submit3Btn" style="flex:1">Submit</button>
+  <button class="btn-submit" id="submit3Btn" style="flex:1;opacity:0.45" disabled>Submit</button>
 </footer>
 
 <!-- FORM 4 SCREEN: SL Selection Assessment -->
@@ -1360,7 +1405,7 @@ function hideAllScreens(){
 const MENU_ITEMS = [
   { id:'form1', title:'Form 1 · School Enrollment Data',    perm:'form1',      icon:'📋' },
   { id:'form2', title:'Form 2 · Schools Contact Info',      perm:'form2',      icon:'🏫' },
-  { id:'form3', title:'Form 3 · Student Data',              perm:'form3',      icon:'👥' },
+  { id:'form3', title:'Form 3 · Students Count Info',       perm:'form3',      icon:'👥' },
   { id:'form4', title:'Form 4 · SL Selection',              perm:'form4',      icon:'⭐' },
   { id:'form5', title:'Form 5 · Assessment Data',           perm:'form5',      icon:'📊' },
   { id:'iifDash',      title:'School Dashboard',            perm:'iifDash',    icon:'🏫' },
@@ -1400,7 +1445,7 @@ function showScreen(which){
     $('hdrTitle').textContent='Schools Contact Info — Form 2'; refreshF2Schools();
   } else if(which==='form3'){
     $('app3').style.display='block'; $('footer3').style.display='flex';
-    $('hdrTitle').textContent='Student Data — Form 3'; refreshF3Schools();
+    $('hdrTitle').textContent='Students Count Info — Form 3'; refreshF3Schools();
   } else if(which==='form4'){
     $('app4').style.display='block'; $('footer4').style.display='flex';
     $('hdrTitle').textContent='SL Selection — Form 4'; refreshF4Schools();
@@ -1473,7 +1518,7 @@ function showSchoolMenu(){
   const FORMS=[
     {key:'form1', tag:'Form 1', title:'School Enrollment',    dataKey:'form1_school_orientation'},
     {key:'form2', tag:'Form 2', title:'Schools Contact Info', dataKey:'form2_schools_contact'},
-    {key:'form3', tag:'Form 3', title:'Student Data',         dataKey:'form3_student_data'},
+    {key:'form3', tag:'Form 3', title:'Students Count Info',   dataKey:'form3_student_data'},
     {key:'form4', tag:'Form 4', title:'SL Selection',         dataKey:'form4_sl_selection'},
     {key:'form5', tag:'Form 5', title:'Assessment Data',      dataKey:'form5_assessment_data'},
   ];
@@ -1526,15 +1571,21 @@ function showSchoolFormDetail(which){
     } else html+='<p class="hint">Not yet submitted.</p>';
     html+='</div>';
   } else if(which==='form3'){
-    title='Form 3 · Student Data';
-    html='<div class="card"><div class="sec-title"><span class="tag">Form 3</span> Student Data</div>';
+    title='Form 3 · Students Count Info';
+    html='<div class="card"><div class="sec-title"><span class="tag">Form 3</span> Students Count Info</div>';
     if(d3){
       html+=`<table class="dash-table">
         <tr><td><b>Grade</b></td><td>${d3['Grade']||'—'}</td></tr>
         <tr><td><b>Section</b></td><td>${d3['Section']||'—'}</td></tr>
-        <tr><td><b>Total students</b></td><td>${d3['Total Students']||'—'}</td></tr>
+        <tr><td><b>Total SL</b></td><td>${d3['Total SL']||'—'}</td></tr>
+        <tr><td><b>Total Clusters</b></td><td>${d3['Total Clusters']||'—'}</td></tr>
+        <tr><td><b>Total Teams</b></td><td>${d3['Total Teams']||'—'}</td></tr>
+        <tr><td><b>Total Students</b></td><td>${d3['Total Students']||'—'}</td></tr>
+        <tr><td><b>Extraction status</b></td><td>${d3['Extraction Status']||'—'}</td></tr>
+        <tr><td><b>Count validation</b></td><td>${d3['Count Validation']||'—'}</td></tr>
+        ${d3['Student Database']?`<tr><td><b>Student database</b></td><td><a href="${d3['Student Database']}" target="_blank" style="color:var(--blue);font-weight:600">Open →</a></td></tr>`:''}
         <tr><td><b>Submitted</b></td><td>${(d3['Submitted At']||'').slice(0,10)||'—'}</td></tr>
-      </table>`;
+      </table><p class="hint" style="margin-top:8px">Showing latest entry. Multiple grade-section entries may exist.</p>`;
     } else html+='<p class="hint">Not yet submitted.</p>';
     html+='</div>';
   } else if(which==='form4'){
@@ -2078,7 +2129,91 @@ $('submit2Btn').onclick = async () => {
   }
 };
 
-/* ---------- Form 3: student data ---------- */
+/* ---------- Form 3: Students Count Info ---------- */
+let f3BlockedByF2 = false;
+let f3ActiveGrades = [];
+let f3SelectedGrade = '';
+let f3PhotoSource = null;
+
+function f3PhotoSelected(source) {
+  const active  = source==='file' ? $('f3photoFile') : $('f3photoCapture');
+  const passive = source==='file' ? $('f3photoCapture') : $('f3photoFile');
+  const activeBtn  = source==='file' ? $('f3btnChoose') : $('f3btnCapture');
+  const passiveBtn = source==='file' ? $('f3btnCapture') : $('f3btnChoose');
+  if (!active.files[0]) return;
+  passive.value='';
+  f3PhotoSource=source;
+  passiveBtn.disabled=true;
+  activeBtn.style.background='var(--navy)';
+  activeBtn.style.color='#fff';
+  $('f3photoName').textContent='📎 '+active.files[0].name;
+}
+
+function f3ResetPhoto() {
+  $('f3photoFile').value='';
+  $('f3photoCapture').value='';
+  $('f3photoName').textContent='';
+  f3PhotoSource=null;
+  [$('f3btnChoose'),$('f3btnCapture')].forEach(btn=>{
+    btn.disabled=false;
+    btn.style.background='#fff';
+    btn.style.color='';
+  });
+}
+
+function f3ClearFormBody(){
+  $('f3form2block').style.display='none';
+  $('f3body').style.display='none';
+  $('f3tracker').style.display='none';
+  $('f3trackerBody').innerHTML='';
+  $('f3grades').innerHTML='';
+  f3ActiveGrades=[]; f3SelectedGrade='';
+  $('f3section').value='';
+  $('f3totalSL').value='';
+  $('f3totalClusters').value='';
+  $('f3totalTeams').value='';
+  $('f3total').value='';
+  f3ResetPhoto();
+  $('submit3Btn').disabled=true; $('submit3Btn').style.opacity='0.45';
+  f3BlockedByF2=false;
+}
+
+$('f3section').addEventListener('input', () => {
+  const pos=$('f3section').selectionStart;
+  $('f3section').value=$('f3section').value.toUpperCase();
+  $('f3section').setSelectionRange(pos,pos);
+});
+
+function f3BuildTracker(gradeDataStr, submissions) {
+  const expected = {};
+  const re = /Grade (\d+):\s*\d+ students,\s*(\d+) sections/g;
+  let m;
+  while ((m = re.exec(gradeDataStr)) !== null) expected[m[1]] = parseInt(m[2]);
+  const submitted = {};
+  (submissions||[]).forEach(s => {
+    const g = String(s['Grade']||'').trim(), sec = String(s['Section']||'').trim();
+    if (!g || !sec) return;
+    if (!submitted[g]) submitted[g] = [];
+    submitted[g].push(sec);
+  });
+  const grades = Object.keys(expected).sort((a,b)=>Number(a)-Number(b));
+  if (!grades.length) return '';
+  return grades.map(g => {
+    const exp = expected[g], done = submitted[g]||[], count = done.length;
+    const dots = Array.from({length:exp},(_,i)=>`<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${i<count?'#22C55E':'#CBD5E1'};margin-right:3px"></span>`).join('');
+    const chips = done.map(s=>`<span style="display:inline-block;padding:2px 8px;background:#DCFCE7;color:#15803D;border-radius:12px;font-size:11px;font-weight:700;margin:2px 2px 2px 0">${s} ✓</span>`).join('');
+    const rem = exp - count;
+    return `<div style="margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <b style="font-size:13px;color:var(--navy)">Grade ${g}</b>
+        <div>${dots}</div>
+        <span style="font-size:11px;color:${count===exp?'#15803D':'var(--muted)'}">${count} of ${exp} sections</span>
+      </div>
+      <div>${chips}${rem>0?`<span style="font-size:11px;color:var(--muted)">${rem} more to go</span>`:''}</div>
+    </div>`;
+  }).join('');
+}
+
 function refreshF3Schools(){
   const partner=$('f3partner').value, sel=$('f3school');
   const list=SCHOOLS.filter(s=>s.partner===partner);
@@ -2087,40 +2222,171 @@ function refreshF3Schools(){
                    : '<option value="">No schools listed for this partner</option>')
     : '<option value="">Select partner first…</option>';
   $('f3code').value='';
+  f3ClearFormBody();
 }
 $('f3partner').addEventListener('change', refreshF3Schools);
-$('f3school').addEventListener('change', ()=>{
+
+function f3ApplyGradeDisables() {
+  const expected = {};
+  const re = /Grade (\d+):\s*\d+ students,\s*(\d+) sections/g;
+  let m;
+  while ((m = re.exec(window._f3GradeDataStr||'')) !== null) expected[m[1]] = parseInt(m[2]);
+  const submitted = {};
+  (window._f3Submissions||[]).forEach(s => {
+    const g = String(s['Grade']||'').trim();
+    if (!g) return;
+    submitted[g] = (submitted[g]||0) + 1;
+  });
+  $('f3grades').querySelectorAll('.chip').forEach(c => {
+    const g = c.dataset.g;
+    const full = expected[g] !== undefined && (submitted[g]||0) >= expected[g];
+    if (full) {
+      c.dataset.disabled = 'true';
+      c.classList.remove('on');
+      c.style.opacity = '0.38';
+      c.style.cursor = 'not-allowed';
+      c.style.background = '#e5e7eb';
+      c.style.color = '#9ca3af';
+      c.style.borderColor = '#d1d5db';
+      if (f3SelectedGrade === g) f3SelectedGrade = '';
+    } else {
+      c.dataset.disabled = 'false';
+      c.style.opacity = '';
+      c.style.cursor = '';
+      c.style.background = '';
+      c.style.color = '';
+      c.style.borderColor = '';
+    }
+  });
+  const chips = [...$('f3grades').querySelectorAll('.chip')];
+  const allDone = chips.length > 0 && chips.every(c => c.dataset.disabled === 'true');
+  const existingMsg = document.getElementById('f3allDoneMsg');
+  if (allDone) {
+    if (!existingMsg) {
+      $('f3trackerBody').insertAdjacentHTML('afterend',
+        '<div id="f3allDoneMsg" style="margin-top:10px;padding:10px 12px;background:#DCFCE7;border-radius:8px;border:1px solid #86EFAC;color:#15803D;font-weight:600;font-size:13px">✅ Form 3 for this school is fully submitted.</div>'
+      );
+    }
+    $('f3formFields').style.display = 'none';
+    $('submit3Btn').disabled = true;
+    $('submit3Btn').style.opacity = '0.45';
+  } else {
+    if (existingMsg) existingMsg.remove();
+    $('f3formFields').style.display = '';
+    if (!f3BlockedByF2) {
+      $('submit3Btn').disabled = false;
+      $('submit3Btn').style.opacity = '';
+    }
+  }
+}
+
+async function f3RefreshTracker(code, token, url) {
+  try {
+    const r = await fetch(url+'?action=allForm3Submissions&schoolCode='+encodeURIComponent(code)+'&token='+encodeURIComponent(token));
+    const j = await r.json();
+    if (j.status === 'ok') {
+      window._f3Submissions = j.submissions || [];
+    }
+  } catch(e) { window._f3Submissions = []; }
+  const gradeDataStr = window._f3GradeDataStr || '';
+  const html = f3BuildTracker(gradeDataStr, window._f3Submissions);
+  if (html) {
+    $('f3trackerBody').innerHTML = html;
+    $('f3tracker').style.display = 'block';
+  }
+  f3ApplyGradeDisables();
+}
+
+$('f3school').addEventListener('change', async ()=>{
   const opt=$('f3school').selectedOptions[0];
-  $('f3code').value = opt ? (opt.dataset.code||'') : '';
+  const code = opt ? (opt.dataset.code||'') : '';
+  $('f3code').value = code;
+  f3ClearFormBody();
+  if(!code) return;
+  const s=getSession(); const url=getCfg().url;
+  if(!s||!url) return;
+  $('f3loader').style.display='block';
+  try{
+    const [r1, r2] = await Promise.all([
+      fetch(url+'?action=schoolData&schoolCode='+encodeURIComponent(code)+'&token='+encodeURIComponent(s.token)),
+      fetch(url+'?action=allForm3Submissions&schoolCode='+encodeURIComponent(code)+'&token='+encodeURIComponent(s.token))
+    ]);
+    const [j1, j2] = await Promise.all([r1.json(), r2.json()]);
+    const f2=j1.status==='ok'&&j1.data&&j1.data.form2_schools_contact;
+    if(!f2){
+      $('f3form2block').style.display='block';
+      f3BlockedByF2=true;
+    } else {
+      $('f3body').style.display='block';
+      $('submit3Btn').disabled=false; $('submit3Btn').style.opacity='';
+      f3BlockedByF2=false;
+      const f1=j1.data.form1_school_orientation;
+      const grades=f1 ? String(f1['Grades']||'').split(',').map(g=>g.trim()).filter(Boolean) : [];
+      f3ActiveGrades=grades;
+      $('f3grades').innerHTML=grades.map(g=>`<div class="chip${grades.length===1?' on':''}" data-g="${g}">Grade ${g}</div>`).join('');
+      if(grades.length===1) f3SelectedGrade=grades[0];
+      $('f3grades').querySelectorAll('.chip').forEach(c=>{
+        c.addEventListener('click', ()=>{
+          if(c.dataset.disabled==='true') return;
+          $('f3grades').querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));
+          c.classList.add('on');
+          f3SelectedGrade=c.dataset.g;
+        });
+      });
+      window._f3GradeDataStr = f1 ? String(f1['Grade Data']||'') : '';
+      window._f3Submissions = j2.status==='ok' ? (j2.submissions||[]) : [];
+      const trackerHtml = f3BuildTracker(window._f3GradeDataStr, window._f3Submissions);
+      if (trackerHtml) {
+        $('f3trackerBody').innerHTML = trackerHtml;
+        $('f3tracker').style.display = 'block';
+      }
+      f3ApplyGradeDisables();
+    }
+  }catch(e){ toast('Could not load school data. Try again.'); }
+  finally{ $('f3loader').style.display='none'; }
 });
+
 $('submit3Btn').onclick = async () => {
-  const p=$('f3partner').value, sc=$('f3school').value, gr=$('f3grade').value,
-        sec=$('f3section').value.trim(), tot=$('f3total').value.trim();
+  const p=$('f3partner').value, sc=$('f3school').value,
+        sec=$('f3section').value.trim(), tot=$('f3total').value.trim(),
+        totalSL=$('f3totalSL').value.trim(), totalClusters=$('f3totalClusters').value.trim(),
+        totalTeams=$('f3totalTeams').value.trim();
   if(!p) return toast('Select partner.');
   if(!sc) return toast('Select school.');
-  if(!gr) return toast('Select grade.');
+  if(f3BlockedByF2) return toast('Please fill Form 2 for this school first.');
+  if(!f3SelectedGrade) return toast('Select grade.');
   if(!sec) return toast('Enter section.');
-  if(!tot) return toast('Enter total count.');
-  if(!$('f3photo').files[0]) return toast('Attach the teams-formation photo.');
+  if(!totalSL) return toast('Enter Total SL count.');
+  if(!totalClusters) return toast('Enter Total Clusters.');
+  if(!totalTeams) return toast('Enter Total Teams.');
+  if(!tot) return toast('Enter Total Students.');
+  if(!f3PhotoSource) return toast('Attach or take the Teams Info Photo.');
   $('submit3Btn').disabled=true; $('submit3Btn').textContent='Reading photo…';
-  const photo=await readPhoto('f3photo');
-  const photo2 = $('f3photo2').files[0] ? await readPhoto('f3photo2') : null;
+  const photo=await readPhoto(f3PhotoSource==='file' ? 'f3photoFile' : 'f3photoCapture');
   const payload={
     formId:'form3_student_data', formVersion:'1.0',
     submissionId:uuid(), submittedAt:new Date().toISOString(), token:getCfg().token,
-    header:{partner:p, school:sc, schoolCode:$('f3code').value, grade:gr, section:sec},
+    header:{partner:p, school:sc, schoolCode:$('f3code').value, grade:f3SelectedGrade, section:sec},
+    totalSL:Number(totalSL)||0, totalClusters:Number(totalClusters)||0, totalTeams:Number(totalTeams)||0,
     total:Number(tot)||0,
-    photo:photo,
-    photo2:photo2
+    photo:photo
   };
   $('submit3Btn').textContent='Sending…';
   const ok=await send(payload);
   $('submit3Btn').disabled=false; $('submit3Btn').textContent='Submit';
   if(ok){
-    $('app3').innerHTML='<div class="done"><div class="big">✅</div><h2>Submitted</h2>'
-      +'<p>Student data saved.</p><span class="idpill">'+payload.submissionId+'</span>'
-      +'<br><br><button class="copybtn" onclick="location.reload()">Fill another</button></div>';
-    $('footer3').style.display='none';
+    const submittedGrade=f3SelectedGrade, submittedSec=sec;
+    toast(`Grade ${submittedGrade} – Section ${submittedSec} submitted!`);
+    $('f3section').value='';
+    $('f3totalSL').value='';
+    $('f3totalClusters').value='';
+    $('f3totalTeams').value='';
+    $('f3total').value='';
+    f3ResetPhoto();
+    $('f3grades').querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));
+    f3SelectedGrade='';
+    const s=getSession(); const url=getCfg().url;
+    if(s&&url) await f3RefreshTracker($('f3code').value, s.token, url);
   } else {
     toast('Could not send. Check connection and try again.');
   }

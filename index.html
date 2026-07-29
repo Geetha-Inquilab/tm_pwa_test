@@ -485,19 +485,26 @@
     <input id="f4code" placeholder="auto-filled" readonly style="background:var(--pastel)" />
     <div class="row2">
       <div><label>Grade / Class <span class="req">*</span></label>
-        <select id="f4grade"><option value="">Select…</option><option>6</option><option>7</option><option>8</option></select></div>
-      <div><label>Section <span class="req">*</span></label>
+        <div id="f4gradeChips" class="chips"></div></div>
+      <div id="f4sectionWrap" style="display:none"><label>Section <span class="req">*</span></label>
         <input id="f4section" placeholder="e.g. A" /></div>
     </div>
-    <label>Teacher name <span class="req">*</span></label>
-    <input id="f4teacher" placeholder="Assigned teacher's name" />
+    <div id="f4gradeblock" style="display:none;margin-top:14px;padding:14px;background:#FFF3CD;border-radius:10px;border:1px solid #FFD700">
+      <b style="color:#856404">&#9888; Already submitted for this grade.</b>
+      <p style="margin:6px 0 0;font-size:13px;color:#856404">SL Selection Assessment has already been submitted for this school and grade. Contact admin to make any changes.</p>
+    </div>
+    <div id="f4teacherSection">
+      <label>Teacher name <span class="req">*</span></label>
+      <div id="f4teacherChips" class="chips" style="margin-bottom:8px"></div>
+      <input id="f4teacherCustom" placeholder="Or type a different teacher name" />
+    </div>
   </div>
 
-  <div id="slBlocks"></div>
+  <div id="slBlocks" style="display:none"></div>
 
-  <button id="addSlBtn" class="copybtn" style="width:100%;padding:13px;font-size:15px;margin-bottom:14px">+ Add another SL</button>
+  <button id="addSlBtn" class="copybtn" style="width:100%;padding:13px;font-size:15px;margin-bottom:14px;display:none">+ Add another SL</button>
 
-  <div class="card">
+  <div id="f4ackCard" class="card" style="display:none">
     <div class="sec-title"><span class="tag">✓</span> Teacher acknowledgement</div>
     <label>Has the teacher confirmed this SL selection data? <span class="req">*</span></label>
     <div class="yn" data-yn="f4ack">
@@ -1470,7 +1477,7 @@ const MENU_ITEMS = [
   { id:'form1', title:'Form 1 · School Enrollment Data',    perm:'form1',      icon:'📋' },
   { id:'form2', title:'Form 2 · Schools Contact Info',      perm:'form2',      icon:'🏫' },
   { id:'form3', title:'Form 3 · Students Count Info',       perm:'form3',      icon:'👥' },
-  { id:'form4', title:'Form 4 · SL Selection',              perm:'form4',      icon:'⭐' },
+  { id:'form4', title:'Form 4 · SL Selection Assessment',   perm:'form4',      icon:'⭐' },
   { id:'form5', title:'Form 5 · Assessment Data',           perm:'form5',      icon:'📊' },
   { id:'iifDash',      title:'School Dashboard',            perm:'iifDash',    icon:'🏫' },
   { id:'trackerScreen',title:'Form Completion Tracker',     perm:'tracker',    icon:'✅' },
@@ -1511,8 +1518,16 @@ function showScreen(which){
     $('app3').style.display='block'; $('footer3').style.display='flex';
     $('hdrTitle').textContent='Students Count Info — Form 3'; refreshF3Schools();
   } else if(which==='form4'){
-    $('app4').style.display='block'; $('footer4').style.display='flex';
-    $('hdrTitle').textContent='SL Selection — Form 4'; refreshF4Schools();
+    $('app4').style.display='block';
+    $('hdrTitle').textContent='SL Selection Assessment — Form 4'; refreshF4Schools();
+    f4SchoolData=null; f4SelectedGrade=''; f4SelectedTeacher=''; window._f4Submissions=[];
+    $('f4gradeChips').innerHTML=''; $('f4teacherChips').innerHTML='';
+    $('f4teacherCustom').value=''; $('f4teacherCustom').disabled=false; $('f4teacherCustom').style.opacity='';
+    $('f4gradeblock').style.display='none'; $('f4teacherSection').style.display='none';
+    $('f4sectionWrap').style.display='none';
+    $('slBlocks').style.display='none'; $('addSlBtn').style.display='none';
+    $('f4ackCard').style.display='none'; $('footer4').style.display='none';
+    $('submit4Btn').disabled=false; $('submit4Btn').style.opacity='';
     if(!slState.length){ slState.push(blankSL()); } renderSLs();
   } else if(which==='form5'){
     $('app5').style.display='block'; $('footer5').style.display='flex';
@@ -1586,7 +1601,7 @@ function showSchoolMenu(){
     {key:'form1', tag:'Form 1', title:'School Enrollment',    dataKey:'form1_school_orientation'},
     {key:'form2', tag:'Form 2', title:'Schools Contact Info', dataKey:'form2_schools_contact'},
     {key:'form3', tag:'Form 3', title:'Students Count Info',   dataKey:'form3_student_data'},
-    {key:'form4', tag:'Form 4', title:'SL Selection',         dataKey:'form4_sl_selection'},
+    {key:'form4', tag:'Form 4', title:'SL Selection Assessment', dataKey:'form4_sl_selection'},
     {key:'form5', tag:'Form 5', title:'Assessment Data',      dataKey:'form5_assessment_data'},
   ];
   let html='';
@@ -1656,8 +1671,8 @@ function showSchoolFormDetail(which){
     } else html+='<p class="hint">Not yet submitted.</p>';
     html+='</div>';
   } else if(which==='form4'){
-    title='Form 4 · SL Selection';
-    html='<div class="card"><div class="sec-title"><span class="tag">Form 4</span> SL Selection</div>';
+    title='Form 4 · SL Selection Assessment';
+    html='<div class="card"><div class="sec-title"><span class="tag">Form 4</span> SL Selection Assessment</div>';
     if(d4){
       let sls=[]; try{ sls=JSON.parse(d4['SLs (JSON)']||'[]'); }catch(e){}
       html+=`<p style="font-size:13px;margin:0 0 8px">${sls.length} Student Leader(s) recorded.</p>`;
@@ -2465,6 +2480,10 @@ $('submit3Btn').onclick = async () => {
 const slState = [];
 function blankSL(){ return { name:'', interested:'', attendance:'', status:'', clear:'', loud:'', english:'' }; }
 
+let f4SchoolData = null;
+let f4SelectedGrade = '';
+let f4SelectedTeacher = '';
+
 function refreshF4Schools(){
   const partner=$('f4partner').value, sel=$('f4school');
   const list=SCHOOLS.filter(s=>s.partner===partner);
@@ -2473,16 +2492,115 @@ function refreshF4Schools(){
                    : '<option value="">No schools listed for this partner</option>')
     : '<option value="">Select partner first…</option>';
   $('f4code').value='';
+  f4SchoolData=null; f4SelectedGrade=''; f4SelectedTeacher='';
+  $('f4gradeChips').innerHTML=''; $('f4teacherChips').innerHTML='';
+  $('f4teacherCustom').value=''; $('f4teacherCustom').disabled=false; $('f4teacherCustom').style.opacity='';
+  $('f4gradeblock').style.display='none'; $('f4teacherSection').style.display='none';
+  $('f4sectionWrap').style.display='none'; $('slBlocks').style.display='none';
+  $('addSlBtn').style.display='none'; $('f4ackCard').style.display='none';
+  $('footer4').style.display='none';
 }
 $('f4partner').addEventListener('change', refreshF4Schools);
-$('f4school').addEventListener('change', ()=>{
+$('f4school').addEventListener('change', async ()=>{
   const opt=$('f4school').selectedOptions[0];
-  $('f4code').value = opt ? (opt.dataset.code||'') : '';
+  const code=opt ? (opt.dataset.code||'') : '';
+  $('f4code').value=code;
+  f4SelectedGrade=''; f4SelectedTeacher='';
+  $('f4gradeChips').innerHTML=''; $('f4teacherChips').innerHTML='';
+  $('f4teacherCustom').value=''; $('f4teacherCustom').disabled=false; $('f4teacherCustom').style.opacity='';
+  $('f4gradeblock').style.display='none'; $('f4teacherSection').style.display='none';
+  $('f4sectionWrap').style.display='none'; $('slBlocks').style.display='none';
+  $('addSlBtn').style.display='none'; $('f4ackCard').style.display='none';
+  $('footer4').style.display='none';
+  if(!code) return;
+  const session=getSession(); const scriptUrl=getCfg().url;
+  if(!session||!scriptUrl){
+    $('f4gradeChips').innerHTML='<span style="color:var(--muted);font-size:13px">Could not load school data. Please refresh.</span>';
+    return;
+  }
+  $('f4gradeChips').innerHTML='<span class="buddy-spinner" style="width:20px;height:20px;border-width:3px;display:inline-block;vertical-align:middle"></span>';
+  try {
+    const [r1,r2]=await Promise.all([
+      fetch(scriptUrl+'?action=schoolData&schoolCode='+encodeURIComponent(code)+'&token='+encodeURIComponent(session.token)),
+      fetch(scriptUrl+'?action=allForm4Submissions&schoolCode='+encodeURIComponent(code)+'&token='+encodeURIComponent(session.token))
+    ]);
+    const [j1,j2]=await Promise.all([r1.json(),r2.json()]);
+    f4SchoolData=(j1&&j1.data)?j1.data:{};
+    window._f4Submissions=(j2&&j2.status==='ok')?(j2.submissions||[]):[];
+  } catch(e){ f4SchoolData={}; window._f4Submissions=[]; toast('Could not load school data. Try again.'); }
+  renderF4Grades();
+});
+
+function renderF4Grades(){
+  const f2=f4SchoolData&&f4SchoolData['form2_schools_contact'];
+  const grades=f2?String(f2['Grades']||'').split(',').map(g=>g.trim()).filter(Boolean):[];
+  if(!grades.length){
+    $('f4gradeChips').innerHTML='<span style="color:var(--muted);font-size:13px">No grade data — complete Form 2 first.</span>';
+    return;
+  }
+  $('f4gradeChips').innerHTML=grades.map(g=>`<div class="chip" data-g="${g}">Grade ${g}</div>`).join('');
+  $('f4gradeChips').addEventListener('click',e=>{
+    const ch=e.target.closest('.chip'); if(!ch) return;
+    $('f4gradeChips').querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+    ch.classList.add('on');
+    f4SelectedGrade=ch.dataset.g;
+    f4ApplyGradeCheck();
+    renderF4Teachers();
+  });
+}
+
+function renderF4Teachers(){
+  $('f4teacherChips').innerHTML='';
+  $('f4teacherCustom').value=''; $('f4teacherCustom').disabled=false; $('f4teacherCustom').style.opacity='';
+  f4SelectedTeacher='';
+  const f2=f4SchoolData&&f4SchoolData['form2_schools_contact'];
+  const teachersStr=f2?String(f2['Teachers']||''):'';
+  const teachers=teachersStr.split('\n').map(line=>{
+    const m=line.match(/^Teacher \d+: (.+?) - \d+ - Grade (.+)$/);
+    return m?{name:m[1].trim(),grades:m[2].trim()}:null;
+  }).filter(t=>t&&t.grades.split(',').map(g=>g.trim()).includes(f4SelectedGrade));
+  if(!teachers.length) return;
+  $('f4teacherChips').innerHTML=teachers.map(t=>`<div class="chip" data-name="${t.name.replace(/"/g,'&quot;')}">${t.name}</div>`).join('');
+  $('f4teacherChips').addEventListener('click',e=>{
+    const ch=e.target.closest('.chip'); if(!ch) return;
+    $('f4teacherChips').querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+    ch.classList.add('on');
+    f4SelectedTeacher=ch.dataset.name;
+    $('f4teacherCustom').value='';
+    $('f4teacherCustom').disabled=true;
+    $('f4teacherCustom').style.opacity='0.45';
+  });
+}
+
+function f4ApplyGradeCheck(){
+  const schoolCode=$('f4code').value.trim().toUpperCase();
+  const grade=f4SelectedGrade;
+  const isDup=(window._f4Submissions||[]).some(s=>
+    String(s['School Code']||'').trim().toUpperCase()===schoolCode &&
+    String(s['Grade']||'').trim()===grade
+  );
+  $('f4gradeblock').style.display=isDup?'block':'none';
+  const show=isDup?'none':'';
+  $('f4sectionWrap').style.display=show;
+  $('f4teacherSection').style.display=show;
+  $('slBlocks').style.display=show;
+  $('addSlBtn').style.display=show;
+  $('f4ackCard').style.display=show;
+  $('footer4').style.display=isDup?'none':'flex';
+  $('submit4Btn').disabled=isDup;
+  $('submit4Btn').style.opacity=isDup?'0.45':'';
+}
+
+$('f4teacherCustom').addEventListener('input',()=>{
+  if($('f4teacherCustom').value.trim()){
+    $('f4teacherChips').querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+    f4SelectedTeacher='';
+  }
 });
 
 const F4_CRITERIA = [
   { key:'interested', label:'Interested in role', opts:['Yes','No'] },
-  { key:'attendance', label:'Attendance >90% last year', opts:['Yes','No','NA'] },
+  { key:'attendance', label:'Attendance >90% last year', opts:['Yes','No'] },
   { key:'status',     label:'SL status', opts:['New SL','Old SL'] },
   { key:'clear',      label:'Speaks clearly', opts:['Yes','No'] },
   { key:'loud',       label:'Speaks loudly', opts:['Yes','No'] },
@@ -2499,10 +2617,24 @@ function renderSLs(){
       <label>SL name <span class="req">*</span></label>
       <input type="text" class="slName" data-i="${idx}" value="${sl.name.replace(/"/g,'&quot;')}" placeholder="Student Leader's name">`;
     F4_CRITERIA.forEach(c=>{
-      html+=`<label>${c.label} <span class="req">*</span></label>
-        <div class="chips slCrit" data-i="${idx}" data-key="${c.key}">
-          ${c.opts.map(o=>`<div class="chip ${sl[c.key]===o?'on':''}" data-v="${o}">${o}</div>`).join('')}
-        </div>`;
+      if(c.key==='english'){
+        html+=`<label style="display:flex;align-items:center;gap:6px">
+          <span>Understands English passage &amp; explains in Telugu <span class="req">*</span></span>
+          <span style="margin-left:auto;display:flex;align-items:center;gap:6px;flex-shrink:0">
+            <button type="button" onclick="document.getElementById('slScenarioModal').style.display='flex'"
+              style="background:var(--primary,#0D3B4A);color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:600;padding:2px 8px;cursor:pointer">Read</button>
+            <a href="sl_scenario.png" download="SL_Scenario.png"
+              style="font-size:18px;color:var(--primary);text-decoration:none" title="Download scenario">⬇</a>
+          </span></label>
+          <div class="chips slCrit" data-i="${idx}" data-key="${c.key}">
+            ${c.opts.map(o=>`<div class="chip ${sl[c.key]===o?'on':''}" data-v="${o}">${o}</div>`).join('')}
+          </div>`;
+      } else {
+        html+=`<label>${c.label} <span class="req">*</span></label>
+          <div class="chips slCrit" data-i="${idx}" data-key="${c.key}">
+            ${c.opts.map(o=>`<div class="chip ${sl[c.key]===o?'on':''}" data-v="${o}">${o}</div>`).join('')}
+          </div>`;
+      }
     });
     card.innerHTML=html;
     wrap.appendChild(card);
@@ -2539,13 +2671,13 @@ $('slBlocks').addEventListener('click',e=>{
 
 $('submit4Btn').onclick = async () => {
   const p=$('f4partner').value, sc=$('f4school').value,
-        gr=$('f4grade').value, sec=$('f4section').value.trim(),
-        tch=$('f4teacher').value.trim();
+        gr=f4SelectedGrade, sec=$('f4section').value.trim(),
+        tch=f4SelectedTeacher||$('f4teacherCustom').value.trim();
   if(!p) return toast('Select partner.');
   if(!sc) return toast('Select school.');
   if(!gr) return toast('Select grade.');
   if(!sec) return toast('Enter section.');
-  if(!tch) return toast('Enter teacher name.');
+  if(!tch) return toast('Select or enter teacher name.');
   if(!slState.length) return toast('Add at least one SL.');
   for(let i=0;i<slState.length;i++){
     const s=slState[i];
@@ -3808,5 +3940,14 @@ if(_sess && _sess.token){
   showAuthScreen();
 }
 </script>
+
+<div id="slScenarioModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto" onclick="if(event.target===this)this.style.display='none'">
+  <div style="background:#fff;border-radius:16px;padding:20px;max-width:600px;width:100%;margin:auto;position:relative">
+    <button type="button" onclick="document.getElementById('slScenarioModal').style.display='none'" style="position:absolute;top:12px;right:12px;background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted)">✕</button>
+    <p style="font-weight:700;margin:0 0 12px">Scenario – English &amp; Telugu passage</p>
+    <img src="sl_scenario.png" style="width:100%;border-radius:8px;display:block" />
+    <a href="sl_scenario.png" download="SL_Scenario.png" class="btn-submit" style="display:block;text-align:center;margin-top:14px;text-decoration:none;padding:12px;border-radius:12px;font-weight:700">⬇ Download</a>
+  </div>
+</div>
 </body>
 </html>

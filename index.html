@@ -571,7 +571,7 @@
 
 <!-- SCHOOL DASHBOARD -->
 <main id="schoolDash" style="display:none">
-  <div class="card">
+  <div class="card" id="sdSchoolCard">
     <div class="sec-title"><span class="tag">School</span> <span id="sdSchoolName">Your School</span></div>
     <p class="hint" style="margin:0">Your school's submitted data. Contact IIF for updates.</p>
   </div>
@@ -1325,11 +1325,15 @@ function restoreDraft(){
 
 /* ---------- done screen ---------- */
 function showDone(id,queued){
+  const sess=getSession();
+  const backBtn=(sess&&sess.role==='School')
+    ?`<button class="copybtn" onclick="sdData=null;showScreen('schoolDash')">&#8592; Back to Dashboard</button>`
+    :`<button class="copybtn" onclick="location.reload()">Fill another school</button>`;
   $('app').innerHTML=`<div class="done"><div class="big">${queued?'📴':'✅'}</div>
     <h2>${queued?'Saved offline':'Submitted'}</h2>
     <p>${queued?'This will sync automatically when you reconnect.':'Data saved to the sheet.'}</p>
     <p>Submission ID<br><span class="idpill">${id}</span></p>
-    <button class="copybtn" onclick="location.reload()">Fill another school</button></div>`;
+    ${backBtn}</div>`;
   $('footer1').style.display='none';
   window.scrollTo(0,0);
 }
@@ -1337,6 +1341,13 @@ function showDone(id,queued){
 /* ---------- toast ---------- */
 let toastT;
 function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2600);}
+
+function fmtDate(str){
+  if(!str) return '—';
+  const d=new Date(str);
+  if(isNaN(d.getTime())) return String(str).slice(0,10)||'—';
+  return d.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
+}
 
 /* ---------- network status ---------- */
 function netStatus(){
@@ -1533,9 +1544,10 @@ function showScreen(which){
     $('app5').style.display='block'; $('footer5').style.display='flex';
     $('hdrTitle').textContent='Assessment Data — Form 5'; refreshF5Schools();
   } else if(which==='schoolDash'){
+    ['partner','f2partner','f3partner','f4partner','school','f2school','f3school','f4school'].forEach(id=>{const el=$(id);if(el)el.disabled=false;});
     $('schoolDash').style.display='block'; $('hdrTitle').textContent='My School Dashboard';
     $('sdBuddyCard').style.display='none';
-    if(sdData){ showSchoolMenu(); } else { loadSchoolDashboard(); }
+    loadSchoolDashboard();
   } else if(which==='iifDash'){
     $('iifDash').style.display='block'; $('hdrTitle').textContent='All Schools Dashboard';
     loadIIFDashboard();
@@ -1574,7 +1586,14 @@ $('homeBtn').onclick=()=>{
 async function loadSchoolDashboard(){
   const s=getSession(); if(!s) return;
   const code=s.schoolCode;
-  $('sdSchoolName').textContent=s.name||'Your School';
+  if(!SCHOOLS.length) await loadSchools();
+  const _sch=SCHOOLS.find(x=>x.code===s.schoolCode);
+  const _schoolName=_sch?_sch.name:(s.schoolCode||'Your School');
+  const _partner=_sch?_sch.partner:'';
+  $('sdSchoolCard').innerHTML=
+    `<div class="sec-title" style="margin-bottom:8px"><span class="tag">School</span> ${_schoolName}</div>`
+    +(_partner?`<div style="font-size:13px;color:var(--muted);margin-bottom:4px">Partner: <b>${_partner}</b> &nbsp;&middot;&nbsp; Code: <b>${s.schoolCode}</b></div>`:'')
+    +`<div style="font-size:13px;color:var(--muted)">Logged in as: <b>${s.name||'—'}</b></div>`;
   $('sdContent').innerHTML='<p style="text-align:center;color:var(--muted);padding:40px 0">Loading…</p>';
   const url=getCfg().url;
   if(!url){ $('sdContent').innerHTML='<p style="color:var(--err);padding:20px">Backend URL not set.</p>'; return; }
@@ -1595,110 +1614,168 @@ function showSchoolMenu(){
   $('hdrTitle').textContent='My School Dashboard';
   $('homeBtn').style.display='none';
   $('sdBuddyCard').style.display='none';
-  const btnStyle='display:block;width:100%;text-align:left;margin-bottom:12px;padding:18px 16px;'
-    +'border-radius:14px;border:1px solid var(--line);font-size:16px;font-weight:700;cursor:pointer;background:#fff;color:var(--navy)';
+  const btnBase='display:block;width:100%;text-align:left;margin-bottom:12px;padding:18px 16px;'
+    +'border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;color:var(--navy)';
+  const btnSubmitted=btnBase+';background:#fff;border:1px solid var(--line)';
+  const btnFillable=btnBase+';background:var(--pastel);border:1.5px solid var(--blue)';
   const FORMS=[
-    {key:'form1', tag:'Form 1', title:'School Enrollment',    dataKey:'form1_school_orientation'},
-    {key:'form2', tag:'Form 2', title:'Schools Contact Info', dataKey:'form2_schools_contact'},
-    {key:'form3', tag:'Form 3', title:'Students Count Info',   dataKey:'form3_student_data'},
+    {key:'form1', tag:'Form 1', title:'School Enrollment',       dataKey:'form1_school_orientation'},
+    {key:'form2', tag:'Form 2', title:'Schools Contact Info',    dataKey:'form2_schools_contact'},
+    {key:'form3', tag:'Form 3', title:'Students Count Info',     dataKey:'form3_student_data'},
     {key:'form4', tag:'Form 4', title:'SL Selection Assessment', dataKey:'form4_sl_selection'},
-    {key:'form5', tag:'Form 5', title:'Assessment Data',      dataKey:'form5_assessment_data'},
   ];
   let html='';
   FORMS.forEach(f=>{
     const submitted=!!(sdData&&sdData[f.dataKey]);
-    const status=submitted
-      ?'<span style="float:right;font-size:13px;font-weight:400;color:#27ae60">&#10003; Submitted</span>'
-      :'<span style="float:right;font-size:13px;font-weight:400;color:var(--muted)">Not yet submitted</span>';
-    html+=`<button onclick="showSchoolFormDetail('${f.key}')" style="${btnStyle}"><span class="tag">${f.tag}</span> ${f.title}${status}</button>`;
+    let status, action, actionLabel, cardStyle;
+    if(submitted){
+      status='<span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;background:#DCFCE7;color:#15803D;vertical-align:middle;margin-left:8px">&#10003; Submitted</span>';
+      action= f.key==='form3' ? `openSchoolForm('${f.key}')` : `showSchoolFormDetail('${f.key}')`;
+      actionLabel= f.key==='form3' ? 'Add Entries &rsaquo;' : 'View &rsaquo;';
+      cardStyle=btnSubmitted;
+    } else {
+      status='<span style="font-size:12px;font-weight:400;color:var(--muted);vertical-align:middle;margin-left:8px">Not yet submitted</span>';
+      action=`openSchoolForm('${f.key}')`;
+      actionLabel='Fill Form &rsaquo;';
+      cardStyle=btnFillable;
+    }
+    html+=`<button onclick="${action}" style="${cardStyle}">
+      <span class="tag">${f.tag}</span> ${f.title}${status}
+      <span style="float:right;font-size:13px;color:var(--blue);font-weight:600">${actionLabel}</span>
+    </button>`;
   });
   if(hasPerm('buddy')){
-    html+=`<button onclick="showScreen('buddyScreen')" style="${btnStyle}">&#9733; Inqui Buddy &middot; Innovation Evaluator</button>`;
+    html+=`<button onclick="showScreen('buddyScreen')" style="${btnSubmitted}">&#9733; Inqui Buddy &middot; Innovation Evaluator</button>`;
   }
   $('sdContent').innerHTML=html;
 }
 
-function showSchoolFormDetail(which){
+function openSchoolForm(which){
+  const s=getSession(); if(!s) return;
+  const school=SCHOOLS.find(x=>x.code===s.schoolCode);
+  if(!school){ toast('School not found in directory. Try logging out and back in.'); return; }
+  const partnerMap={form1:'partner',form2:'f2partner',form3:'f3partner',form4:'f4partner'};
+  const schoolMap ={form1:'school', form2:'f2school', form3:'f3school', form4:'f4school'};
+  const pId=partnerMap[which], sId=schoolMap[which];
+  // Pre-set partner so showScreen's refreshXXXSchools populates options correctly
+  if(pId){ const el=$(pId); if(el) el.value=school.partner; }
+  showScreen(which);
+  // Auto-select school and fire change handler (triggers backend dependency/dup check)
+  if(sId){
+    const sel=$(sId);
+    if(sel){ sel.value=school.name; sel.dispatchEvent(new Event('change')); sel.disabled=true; }
+    if(pId){ const pel=$(pId); if(pel) pel.disabled=true; }
+  }
+}
+
+async function showSchoolFormDetail(which){
   if(!sdData) return;
   $('homeBtn').style.display='block';
   const d1=sdData['form1_school_orientation'], d2=sdData['form2_schools_contact'],
-        d3=sdData['form3_student_data'], d4=sdData['form4_sl_selection'],
-        d5=sdData['form5_assessment_data'];
+        d3=sdData['form3_student_data'];
+  const backBtn='<button onclick="showSchoolMenu()" style="display:inline-flex;align-items:center;gap:6px;'
+    +'background:none;border:none;color:var(--blue);font-size:14px;font-weight:600;cursor:pointer;padding:0 0 12px 0">'
+    +'&#8592; Back to forms</button>';
+  const submittedBadge='<div style="margin-bottom:12px">'
+    +'<span style="background:#DCFCE7;color:#15803D;font-size:12px;font-weight:700;padding:4px 12px;border-radius:20px">&#10003; Submitted</span></div>';
+  function row(label,val){ return `<tr><td><b>${label}</b></td><td>${val||'—'}</td></tr>`; }
+  function linkRow(label,url){ return url?`<tr><td><b>${label}</b></td><td><a href="${url}" target="_blank" style="color:var(--blue);font-weight:600">Open ↗</a></td></tr>`:''; }
   let html='', title='';
   if(which==='form1'){
     title='Form 1 · School Enrollment';
     html='<div class="card"><div class="sec-title"><span class="tag">Form 1</span> School Enrollment</div>';
     if(d1){
-      html+=`<table class="dash-table">
-        <tr><td><b>Partner</b></td><td>${d1['Partner']||'—'}</td></tr>
-        <tr><td><b>Visit date</b></td><td>${d1['Visit Date']||'—'}</td></tr>
-        <tr><td><b>Visited by</b></td><td>${d1['Visited By']||'—'}</td></tr>
-        <tr><td><b>Programme year</b></td><td>${d1['Programme Year']||'—'}</td></tr>
-        <tr><td><b>Principal</b></td><td>${d1['Principal Name']||'—'}</td></tr>
-        <tr><td><b>Assigned teacher</b></td><td>${d1['Teacher Name']||'—'}</td></tr>
-        <tr><td><b>Lab room</b></td><td>${d1['Lab Room']||'—'}</td></tr>
-        <tr><td><b>Internet</b></td><td>${d1['Internet']||'—'}</td></tr>
-      </table>`;
+      html+=submittedBadge+'<table class="dash-table">'
+        +row('Partner',d1['Partner'])
+        +row('School',d1['School'])
+        +row('Visit date',fmtDate(d1['Visit Date']))
+        +row('Visited by',d1['Visited By'])
+        +row('Submitted on',fmtDate(d1['Submitted At']))
+        +row('Location',d1['School Location'])
+        +row('District',d1['District'])
+        +row('Distance to IIF',d1['Distance to IIF (km)']?(d1['Distance to IIF (km)']+' km'):'')
+        +row('Programme year',d1['Programme Year'])
+        +row('Gender type',d1['Gender Type'])
+        +row('School type',d1['School Type'])
+        +row('Medium',d1['Medium'])
+        +row('Grades',d1['Grades'])
+        +row('Total sections',d1['Total Sections'])
+        +row('Principal name',d1['Principal Name'])
+        +row('Principal phone',d1['Principal Phone'])
+        +row('Lab room',d1['Lab Room'])
+        +row('Internet',d1['Internet'])
+        +row('Smart board',d1['Smart Board'])
+        +row('Kit storage',d1['Kit Storage'])
+        +row('Observations',d1['Observations'])
+        +row('Next steps',d1['Next Steps'])
+        +row('Principal acknowledged',d1['Principal Acknowledged'])
+        +linkRow('Maps link',d1['Maps Link'])
+        +'</table>';
     } else html+='<p class="hint">Not yet submitted for this school.</p>';
     html+='</div>';
   } else if(which==='form2'){
     title='Form 2 · Schools Contact Info';
     html='<div class="card"><div class="sec-title"><span class="tag">Form 2</span> Schools Contact Info</div>';
     if(d2){
-      html+=`<table class="dash-table">
-        <tr><td><b>Partner</b></td><td>${d2['Partner']||'—'}</td></tr>
-        <tr><td><b>School</b></td><td>${d2['School']||'—'}</td></tr>
-        <tr><td><b>Submitted</b></td><td>${(d2['Submitted At']||'').slice(0,10)||'—'}</td></tr>
-      </table>`;
-    } else html+='<p class="hint">Not yet submitted.</p>';
-    html+='</div>';
-  } else if(which==='form3'){
-    title='Form 3 · Students Count Info';
-    html='<div class="card"><div class="sec-title"><span class="tag">Form 3</span> Students Count Info</div>';
-    if(d3){
-      html+=`<table class="dash-table">
-        <tr><td><b>Grade</b></td><td>${d3['Grade']||'—'}</td></tr>
-        <tr><td><b>Section</b></td><td>${d3['Section']||'—'}</td></tr>
-        <tr><td><b>Total SL</b></td><td>${d3['Total SL']||'—'}</td></tr>
-        <tr><td><b>Total Clusters</b></td><td>${d3['Total Clusters']||'—'}</td></tr>
-        <tr><td><b>Total Teams</b></td><td>${d3['Total Teams']||'—'}</td></tr>
-        <tr><td><b>Total Students</b></td><td>${d3['Total Students']||'—'}</td></tr>
-        <tr><td><b>Extraction status</b></td><td>${d3['Extraction Status']||'—'}</td></tr>
-        <tr><td><b>Count validation</b></td><td>${d3['Count Validation']||'—'}</td></tr>
-        ${d3['Student Database']?`<tr><td><b>Student database</b></td><td><a href="${d3['Student Database']}" target="_blank" style="color:var(--blue);font-weight:600">Open →</a></td></tr>`:''}
-        <tr><td><b>Submitted</b></td><td>${(d3['Submitted At']||'').slice(0,10)||'—'}</td></tr>
-      </table><p class="hint" style="margin-top:8px">Showing latest entry. Multiple grade-section entries may exist.</p>`;
+      const teachers=(d2['Teachers']||'').trim();
+      const schedule=(d2['Session Schedule']||'').trim();
+      html+=submittedBadge+'<table class="dash-table">'
+        +row('Partner',d2['Partner'])
+        +row('School',d2['School'])
+        +row('Submitted on',fmtDate(d2['Submitted At']))
+        +row('Principal name',d2['Principal Name'])
+        +row('Principal phone',d2['Principal Phone'])
+        +row('Grades',d2['Grades'])
+        +row('IIF PoC',d2['IIF PoC'])
+        +(teachers?`<tr><td><b>Teachers</b></td><td style="white-space:pre-line;font-size:13px">${teachers}</td></tr>`:'')
+        +(schedule?`<tr><td><b>Session schedule</b></td><td style="white-space:pre-line;font-size:13px">${schedule}</td></tr>`:'')
+        +linkRow('Maps link',d2['Maps Link'])
+        +'</table>';
     } else html+='<p class="hint">Not yet submitted.</p>';
     html+='</div>';
   } else if(which==='form4'){
     title='Form 4 · SL Selection Assessment';
     html='<div class="card"><div class="sec-title"><span class="tag">Form 4</span> SL Selection Assessment</div>';
-    if(d4){
-      let sls=[]; try{ sls=JSON.parse(d4['SLs (JSON)']||'[]'); }catch(e){}
-      html+=`<p style="font-size:13px;margin:0 0 8px">${sls.length} Student Leader(s) recorded.</p>`;
-      if(sls.length){
-        html+='<table class="dash-table"><tr><th>Name</th><th>Status</th><th>Interested</th></tr>';
-        sls.forEach(sl=>{ html+=`<tr><td>${sl.name||'—'}</td><td>${sl.status||'—'}</td><td>${sl.interested||'—'}</td></tr>`; });
-        html+='</table>';
-      }
-    } else html+='<p class="hint">Not yet submitted.</p>';
-    html+='</div>';
-  } else if(which==='form5'){
-    title='Form 5 · Assessment Data';
-    html='<div class="card"><div class="sec-title"><span class="tag">Form 5</span> Assessment Data</div>';
-    if(d5){
-      const paper=Number(d5['Paper Count'])||0, tab=Number(d5['Tab Count'])||0;
-      html+=`<table class="dash-table">
-        <tr><td><b>Baseline date</b></td><td>${d5['Baseline Date']||'—'}</td></tr>
-        <tr><td><b>Total students</b></td><td>${d5['Total Students']||'—'}</td></tr>
-        <tr><td><b>Attendance</b></td><td>${d5['Attendance']||'—'}</td></tr>
-        <tr><td><b>Assessed</b></td><td>Paper: ${paper} &middot; Tab: ${tab} &middot; Total: ${paper+tab}</td></tr>
-      </table>`;
-    } else html+='<p class="hint">Not yet submitted.</p>';
+    const s4=getSession(); const url4=getCfg().url;
+    let allSubs4=[];
+    if(s4&&url4){
+      try{
+        const r4=await fetch(url4+'?action=allForm4Submissions&schoolCode='+encodeURIComponent(s4.schoolCode)+'&token='+encodeURIComponent(s4.token));
+        const j4=await r4.json();
+        if(j4.status==='ok') allSubs4=j4.submissions||[];
+      }catch(e){}
+    }
+    if(allSubs4.length){
+      html+=submittedBadge;
+      const groups={};
+      allSubs4.forEach(r=>{
+        const key=(r['Grade']||'?')+'_'+(r['Section']||'?');
+        if(!groups[key]) groups[key]={grade:r['Grade'],section:r['Section'],teacher:r['Teacher'],date:r['Submitted At'],ack:r['Teacher Acknowledged'],sls:[]};
+        groups[key].sls.push(r);
+      });
+      Object.values(groups).forEach(g=>{
+        html+=`<div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--line)">
+          <div style="font-weight:700;color:var(--navy);margin-bottom:4px">Grade ${g.grade||'—'} — Section ${g.section||'—'}</div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Teacher: ${g.teacher||'—'} &nbsp;&middot;&nbsp; ${fmtDate(g.date)} &nbsp;&middot;&nbsp; Ack: ${g.ack||'—'}</div>`;
+        html+='<div style="overflow-x:auto"><table class="dash-table" style="font-size:12px">'
+          +'<tr><th>Name</th><th>Status</th><th>Interested</th><th>Attendance</th><th>Clearly</th><th>Loudly</th><th>English</th></tr>';
+        g.sls.forEach(sl=>{
+          html+=`<tr><td>${sl['SL Name']||'—'}</td><td>${sl['SL Status']||'—'}</td>`
+            +`<td>${sl['Interested in Role']||'—'}</td><td>${sl['Attendance >90%']||'—'}</td>`
+            +`<td>${sl['Speaks Clearly']||'—'}</td><td>${sl['Speaks Loudly']||'—'}</td>`
+            +`<td>${sl['Understands English']||'—'}</td></tr>`;
+        });
+        html+='</table></div></div>';
+      });
+    } else if(sdData&&sdData['form4_sl_selection']){
+      html+=submittedBadge+'<p class="hint">Could not load SL details. Check connection.</p>';
+    } else {
+      html+='<p class="hint">Not yet submitted.</p>';
+    }
     html+='</div>';
   }
   $('hdrTitle').textContent=title;
-  $('sdContent').innerHTML=html;
+  $('sdContent').innerHTML=backBtn+html;
 }
 
 /* ============================================================
@@ -2202,9 +2279,13 @@ $('submit2Btn').onclick = async () => {
   $('submit2Btn').disabled=false; $('submit2Btn').textContent='Submit';
   if(ok==='duplicate'){ toast('This school has already submitted Form 2. Contact admin for changes.'); return; }
   if(ok){
+    const sess2=getSession();
+    const backBtn2=(sess2&&sess2.role==='School')
+      ?`<button class="copybtn" onclick="sdData=null;showScreen('schoolDash')">&#8592; Back to Dashboard</button>`
+      :`<button class="copybtn" onclick="location.reload()">Fill another</button>`;
     $('app2').innerHTML='<div class="done"><div class="big">✅</div><h2>Submitted</h2>'
       +'<p>Schools contact info saved.</p><span class="idpill">'+payload.submissionId+'</span>'
-      +'<br><br><button class="copybtn" onclick="location.reload()">Fill another</button></div>';
+      +'<br><br>'+backBtn2+'</div>';
     $('footer2').style.display='none';
   } else {
     toast('Could not send. Check connection and try again.');
@@ -2469,6 +2550,18 @@ $('submit3Btn').onclick = async () => {
     f3SelectedGrade='';
     const s=getSession(); const url=getCfg().url;
     if(s&&url) await f3RefreshTracker($('f3code').value, s.token, url);
+    if(s&&s.role==='School'){
+      const dashLink=$('f3dashLink');
+      if(!dashLink){
+        const btn=document.createElement('button');
+        btn.id='f3dashLink';
+        btn.className='copybtn';
+        btn.style.cssText='margin-top:14px;width:100%';
+        btn.textContent='← Back to Dashboard';
+        btn.onclick=()=>{ sdData=null; showScreen('schoolDash'); };
+        $('f3tracker').appendChild(btn);
+      }
+    }
   } else {
     toast('Could not send. Check connection and try again.');
   }
@@ -2698,9 +2791,13 @@ $('submit4Btn').onclick = async () => {
   const ok=await send(payload);
   $('submit4Btn').disabled=false; $('submit4Btn').textContent='Submit';
   if(ok){
+    const sess4=getSession();
+    const backBtn4=(sess4&&sess4.role==='School')
+      ?`<button class="copybtn" onclick="sdData=null;showScreen('schoolDash')">&#8592; Back to Dashboard</button>`
+      :`<button class="copybtn" onclick="location.reload()">Fill another</button>`;
     $('app4').innerHTML='<div class="done"><div class="big">✅</div><h2>Submitted</h2>'
       +'<p>'+payload.sls.length+' SL record(s) saved.</p><span class="idpill">'+payload.submissionId+'</span>'
-      +'<br><br><button class="copybtn" onclick="location.reload()">Fill another</button></div>';
+      +'<br><br>'+backBtn4+'</div>';
     $('footer4').style.display='none';
   } else { queue(payload); toast('Saved offline — will sync when online.'); }
 };

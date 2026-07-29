@@ -48,11 +48,13 @@ var FORM_SCHEMAS = {
     ]
   },
   form4_sl_selection: {
-    tabName: 'Form4_SLSelection',
+    tabName: 'SL_Selection_Assessment',
     columns: [
       'Submission ID', 'Submitted At', 'Form Version', 'Status',
       'Partner', 'School', 'School Code', 'Grade', 'Section', 'Teacher',
-      'Teacher Acknowledged', 'SL Count', 'SLs (JSON)'
+      'SL Name', 'Interested in Role', 'Attendance >90%', 'SL Status',
+      'Speaks Clearly', 'Speaks Loudly', 'Understands English',
+      'Teacher Acknowledged'
     ]
   },
   form5_assessment_data: {
@@ -116,6 +118,7 @@ function doGet(e) {
   if (action === 'getTeamData')              return handleGetTeamData(p);
   if (action === 'getSchoolSummary')         return handleGetSchoolSummary(p);
   if (action === 'allForm3Submissions')      return handleAllForm3Submissions(p);
+  if (action === 'allForm4Submissions')      return handleAllForm4Submissions(p);
   if (action === 'getSchoolGradesAndSections') return handleGetSchoolGradesAndSections(p);
   if (action === 'getSchoolBuddyTeams')      return handleGetSchoolBuddyTeams(p);
 
@@ -502,8 +505,15 @@ function handleFormSubmit(payload) {
   }
 
   var tab = getOrCreateTab(partnerSS, schema);
-  var row = buildRow(payload, schema);
-  tab.appendRow(row);
+  if (payload.formId === 'form4_sl_selection') {
+    var slRows = buildRowForm4(payload);
+    slRows.forEach(function(rowObj) {
+      tab.appendRow(schema.columns.map(function(c) { return rowObj[c] !== undefined ? rowObj[c] : ''; }));
+    });
+  } else {
+    var row = buildRow(payload, schema);
+    tab.appendRow(row);
+  }
 
   uploadPhotos(payload, ss, partner, partnerSS);
 
@@ -779,6 +789,30 @@ function handleAllForm3Submissions(p) {
   return json({ status: 'ok', submissions: submissions });
 }
 
+function handleAllForm4Submissions(p) {
+  var schoolCode = (p.schoolCode || '').trim().toUpperCase();
+  if (!schoolCode) return json({ status: 'error', message: 'schoolCode required' });
+  var ss = getSheet();
+  var partnerName = getPartnerForSchool(ss, schoolCode);
+  var targetSS = partnerName ? getOrCreatePartnerSheet(partnerName, ss) : ss;
+  var schema = FORM_SCHEMAS['form4_sl_selection'];
+  var sheet = targetSS.getSheetByName(schema.tabName);
+  if (!sheet) return json({ status: 'ok', submissions: [] });
+  var data = sheet.getDataRange().getValues();
+  var header = data[0];
+  var scIdx = header.indexOf('School Code');
+  var statusIdx = header.indexOf('Status');
+  var submissions = [];
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][scIdx]).trim().toUpperCase() !== schoolCode) continue;
+    if (statusIdx >= 0 && String(data[i][statusIdx]).toLowerCase() === 'superseded') continue;
+    var obj = {};
+    header.forEach(function(col, idx) { obj[col] = data[i][idx]; });
+    submissions.push(obj);
+  }
+  return json({ status: 'ok', submissions: submissions });
+}
+
 // -------- STUDENT DATABASE EXTRACTION --------
 
 function getOrCreateStudentDbSheet(partnerName, partnerFolderId) {
@@ -988,16 +1022,32 @@ function reExtractFailed() {
 }
 
 function buildRowForm4(p) {
-  var h=p.header||{};
-  return {
-    'Submission ID':p.submissionId||'','Submitted At':p.submittedAt||new Date().toISOString(),
-    'Form Version':p.formVersion||'','Status':p.isEdit?'edited':'active',
-    'Partner':h.partner||'','School':h.school||'','School Code':h.schoolCode||'',
-    'Grade':h.grade||'','Section':h.section||'','Teacher':h.teacher||'',
-    'Teacher Acknowledged':p.teacherAck||'',
-    'SL Count':(p.sls||[]).length,
-    'SLs (JSON)':JSON.stringify(p.sls||[])
+  var h = p.header || {};
+  var common = {
+    'Submission ID': p.submissionId || '',
+    'Submitted At': p.submittedAt || new Date().toISOString(),
+    'Form Version': p.formVersion || '',
+    'Status': p.isEdit ? 'edited' : 'active',
+    'Partner': h.partner || '',
+    'School': h.school || '',
+    'School Code': h.schoolCode || '',
+    'Grade': h.grade || '',
+    'Section': h.section || '',
+    'Teacher': h.teacher || ''
   };
+  var ack = p.teacherAck || '';
+  return (p.sls || []).map(function(sl) {
+    return Object.assign({}, common, {
+      'SL Name': sl.name || '',
+      'Interested in Role': sl.interested || '',
+      'Attendance >90%': sl.attendance || '',
+      'SL Status': sl.status || '',
+      'Speaks Clearly': sl.clear || '',
+      'Speaks Loudly': sl.loud || '',
+      'Understands English': sl.english || '',
+      'Teacher Acknowledged': ack
+    });
+  });
 }
 
 function buildRowForm5(p) {

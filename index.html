@@ -723,45 +723,8 @@
       <select id="buddySchool" onchange="buddyOnSchoolChange()"><option value="">Select school…</option></select>
       <label>School Code</label>
       <input id="buddySchoolCode" readonly style="background:var(--pastel)" placeholder="auto-filled" />
-      <button id="buddyStep2Btn" class="buddy-btn buddy-btn-primary" style="margin-top:16px" disabled onclick="goToBuddyStep3()">Next →</button>
+      <button id="buddyStep2Btn" class="buddy-btn buddy-btn-primary" style="margin-top:16px" disabled onclick="openBuddyOverview('buddyScreen')">Next →</button>
       <button class="btn-draft" style="width:100%;border:none;border-radius:12px;padding:12px;font-weight:700;cursor:pointer;margin-top:6px" onclick="buddyBack(1)">← Back</button>
-    </div>
-  </div>
-  <!-- Step 3: SL -->
-  <div id="buddy-step3" style="display:none">
-    <div class="card">
-      <div class="sec-title"><span class="tag">Step 3 / 4</span> Select Student Leader</div>
-      <div id="buddyLoadingTeams" style="text-align:center;padding:30px 0">
-        <div class="buddy-spinner"></div>
-        <p style="color:var(--muted);font-size:14px;margin:0">Loading team data…</p>
-      </div>
-      <div id="buddySLWrap" style="display:none">
-        <label>Student Leader (SL)</label>
-        <select id="buddySL" onchange="buddyOnSLChange()"><option value="">Select SL…</option></select>
-        <div class="row2" style="margin-top:12px">
-          <div><label style="margin-top:0">Cluster ID</label><input id="buddyClusterId" readonly style="background:var(--pastel)" placeholder="auto-filled" /></div>
-          <div><label style="margin-top:0">Grade / Section</label><input id="buddyGradeSec" readonly style="background:var(--pastel)" placeholder="auto-filled" /></div>
-        </div>
-        <button id="buddyStep3Btn" class="buddy-btn buddy-btn-primary" style="margin-top:16px" disabled onclick="goToBuddyStep4()">Next →</button>
-        <button class="btn-draft" style="width:100%;border:none;border-radius:12px;padding:12px;font-weight:700;cursor:pointer;margin-top:6px" onclick="buddyBack(2)">← Back</button>
-      </div>
-      <div id="buddyNoTeamsWrap" style="display:none">
-        <div class="preview warn" style="margin-bottom:14px">No team data found for this school.</div>
-        <p style="font-size:13px;color:var(--muted)">Team data is extracted from the Form 3 student database photo. Tap below to extract it now (takes ~20 seconds).</p>
-        <button id="buddyExtractBtn" class="buddy-btn buddy-btn-primary" onclick="extractBuddyTeamData()">Extract Team Data from Form 3 Photo</button>
-        <div id="buddyExtractStatus" style="font-size:13px;margin-top:6px"></div>
-        <button class="btn-draft" style="width:100%;border:none;border-radius:12px;padding:12px;font-weight:700;cursor:pointer;margin-top:6px" onclick="buddyBack(2)">← Back</button>
-      </div>
-    </div>
-  </div>
-  <!-- Step 4: Team -->
-  <div id="buddy-step4" style="display:none">
-    <div class="card">
-      <div class="sec-title"><span class="tag">Step 4 / 4</span> Select Team</div>
-      <p id="buddyClusterLabel" class="hint" style="margin:0 0 12px"></p>
-      <div id="buddyTeamList"></div>
-      <button id="buddyStep4Btn" class="buddy-btn buddy-btn-primary" style="display:none;margin-top:4px" onclick="showBuddyEvalScreen()">Evaluate This Team →</button>
-      <button class="btn-draft" style="width:100%;border:none;border-radius:12px;padding:12px;font-weight:700;cursor:pointer;margin-top:6px" onclick="buddyBack(3)">← Back</button>
     </div>
   </div>
 </main>
@@ -803,14 +766,50 @@
 
 <!-- INQUI BUDDY OVERVIEW SCREEN -->
 <main id="buddyOverviewScreen" style="display:none">
-  <div class="card">
-    <div class="sec-title"><span class="tag">Overview</span> <span id="boSchoolName">Teams Overview</span></div>
-    <div id="boStats" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px"></div>
+  <!-- Step A: Grade & Section selection -->
+  <div id="boGradeSecStep">
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+        <div style="flex:1"><div class="sec-title" style="margin:0"><span class="tag">Inqui Buddy</span> <span id="boSchoolName">Select Grade &amp; Section</span></div></div>
+        <button id="boGradeBackBtn" class="btn-sm" style="display:none" onclick="boGoBack()">&larr; Back</button>
+      </div>
+      <div id="boLoadingGrades" style="text-align:center;padding:20px 0">
+        <div class="buddy-spinner" style="width:28px;height:28px;border-width:3px;margin-bottom:8px"></div>
+        <p style="color:var(--muted);font-size:14px;margin:0">Loading grade data…</p>
+      </div>
+      <div id="boGradeSecWrap" style="display:none">
+        <label>Grade <span class="req">*</span></label>
+        <select id="boGrade" onchange="boGradeChange()"><option value="">Select grade…</option></select>
+        <label>Section <span class="req">*</span></label>
+        <select id="boSection" onchange="boSectionChange()"><option value="">Select section…</option></select>
+        <button id="boProceedBtn" class="buddy-btn buddy-btn-primary" style="margin-top:16px" disabled onclick="boViewTeams()">View Teams &rarr;</button>
+      </div>
+      <div id="boNoGrades" style="display:none">
+        <div class="preview warn">No Form 3 data found for this school. Please ensure Form 3 has been submitted first.</div>
+      </div>
+    </div>
   </div>
-  <div style="padding:0 0 6px">
-    <button class="buddy-btn buddy-btn-success" id="boDownloadBtn" style="display:none" onclick="downloadAllTeamsPDF()">&#x2B07; Download All Teams PDF</button>
+
+  <!-- Step B: Teams list -->
+  <div id="boTeamsStep" style="display:none">
+    <div class="card" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+      <div style="flex:1">
+        <div class="sec-title" style="margin:0"><span class="tag">Inqui Buddy</span> <span id="boGradeSecLabel"></span></div>
+        <p id="boSchoolLabel" class="hint" style="margin:4px 0 0"></p>
+      </div>
+      <button class="btn-sm" onclick="boBackToGradeStep()">&larr; Back</button>
+    </div>
+    <div id="boLoadingTeams" style="text-align:center;padding:30px 0;display:none">
+      <div class="buddy-spinner"></div>
+      <p style="color:var(--muted);font-size:14px;margin:0">Loading teams…</p>
+    </div>
+    <div id="boTeamsList"></div>
+    <div class="card" style="padding:16px;margin-top:4px">
+      <div id="boGenerateStatus" style="font-size:13px;text-align:center;margin-bottom:10px;display:none"></div>
+      <button id="boGenerateBtn" class="buddy-btn buddy-btn-primary" onclick="sbGenerateFeedback('bo')" disabled>Generate Feedback for All Submitted Teams</button>
+      <button id="boDownloadAllBtn" class="buddy-btn buddy-btn-success" style="display:none;margin-top:8px" onclick="sbDownloadAllPDF()">&darr; Download All Teams Feedback PDF</button>
+    </div>
   </div>
-  <div id="boContent"><p style="text-align:center;color:var(--muted);padding:40px 0">Loading teams…</p></div>
 </main>
 
 <!-- SCHOOL BUDDY SCREEN -->
@@ -1816,6 +1815,7 @@ function renderDashTable(){
           ${sch.form3Date?'<b>F3 submitted:</b> '+String(sch.form3Date).slice(0,10)+'<br>':''}
           ${sch.form4Date?'<b>F4 submitted:</b> '+String(sch.form4Date).slice(0,10)+'<br>':''}
           ${sch.form5Date?'<b>F5 submitted:</b> '+String(sch.form5Date).slice(0,10)+'<br>':''}
+          <button class="btn-sm primary" style="margin-top:8px" onclick="iifOpenSchoolTeams('${escHtml(sch.code||'')}','${escHtml(sch.name||'')}')">View Teams &rarr;</button>
         </div></td></tr>`;
   });
   html+='</tbody></table></div>';
@@ -1823,6 +1823,12 @@ function renderDashTable(){
 }
 
 function toggleDashRow(idx){ const el=$('dashRow'+idx); if(el) el.classList.toggle('open'); }
+
+function iifOpenSchoolTeams(code, name){
+  buddyState.schoolCode = code;
+  buddyState.school = name;
+  openBuddyOverview('iifDash');
+}
 
 // Partner filter chips for dashboard are wired dynamically by refreshPartnerDropdowns()
 
@@ -3154,25 +3160,113 @@ async function downloadBuddyPDF(){
    ============================================================ */
 
 let buddyOverviewData = [];
+let boReturnScreen = null;
+
+function openBuddyOverview(returnScreen){
+  boReturnScreen = returnScreen || null;
+  showScreen('buddyOverviewScreen');
+}
+
+function boGoBack(){
+  const target = boReturnScreen || 'home';
+  boReturnScreen = null;
+  showScreen(target);
+}
 
 async function loadBuddyOverview(){
-  $('boSchoolName').textContent = buddyState.school || 'Teams Overview';
-  $('boContent').innerHTML = '<p style="text-align:center;color:var(--muted);padding:40px 0"><span class="buddy-spinner" style="display:inline-block;vertical-align:middle;margin-right:8px"></span>Loading teams…</p>';
-  $('boStats').innerHTML = '';
-  $('boDownloadBtn').style.display = 'none';
+  $('boSchoolName').textContent = buddyState.school || 'Select Grade & Section';
+  $('boGradeSecStep').style.display = 'block';
+  $('boTeamsStep').style.display = 'none';
+  $('boLoadingGrades').style.display = 'block';
+  $('boGradeSecWrap').style.display = 'none';
+  $('boNoGrades').style.display = 'none';
+  const backBtn = $('boGradeBackBtn');
+  if(backBtn) backBtn.style.display = boReturnScreen ? 'block' : 'none';
+
+  // Set schoolBuddyState from IIF buddyState so all sb* functions work correctly
+  schoolBuddyState.schoolCode = buddyState.schoolCode;
+  schoolBuddyState.school     = buddyState.school;
+  const match = SCHOOLS.find(sc => sc.name === buddyState.school);
+  schoolBuddyState.partner    = match ? match.partner : '';
+  schoolBuddyState.grade = ''; schoolBuddyState.section = '';
+  schoolBuddyState.gradesAndSections = []; schoolBuddyState.expectedGrades = [];
+  schoolBuddyState.teams = []; schoolBuddyState.localArtifacts = {};
+
   const s = getSession(), url = getCfg().url;
   try{
-    const r = await fetch(url+'?action=getSchoolSummary&schoolCode='+encodeURIComponent(buddyState.schoolCode)+'&token='+encodeURIComponent(s.token));
+    const r = await fetch(url+'?action=getSchoolGradesAndSections&schoolCode='+encodeURIComponent(buddyState.schoolCode)+'&token='+encodeURIComponent(s.token));
     const j = await r.json();
-    if(j.status==='ok'){
-      buddyOverviewData = j.teams || [];
-      renderBuddyOverview(buddyOverviewData);
+    $('boLoadingGrades').style.display = 'none';
+    schoolBuddyState.expectedGrades = j.expectedGrades || [];
+    if(j.status==='ok' && j.gradesAndSections && j.gradesAndSections.length){
+      schoolBuddyState.gradesAndSections = j.gradesAndSections;
+      const grades = [...new Set(j.gradesAndSections.map(g=>g.grade))];
+      $('boGrade').innerHTML = '<option value="">Select grade…</option>' + grades.map(g=>`<option value="${escHtml(g)}">Grade ${escHtml(g)}</option>`).join('');
+      $('boSection').innerHTML = '<option value="">Select section…</option>';
+      $('boProceedBtn').disabled = true;
+      $('boGradeSecWrap').style.display = 'block';
     } else {
-      $('boContent').innerHTML = '<p style="color:var(--err);padding:20px">'+escHtml(j.message||'Error loading teams')+'</p>';
+      $('boNoGrades').style.display = 'block';
     }
   }catch(e){
-    $('boContent').innerHTML = '<p style="color:var(--err);padding:20px">Could not reach server. Check connection.</p>';
+    $('boLoadingGrades').style.display = 'none';
+    $('boNoGrades').style.display = 'block';
   }
+}
+
+function boGradeChange(){
+  const grade = $('boGrade').value;
+  $('boProceedBtn').disabled = true;
+  if(!grade){ $('boSection').innerHTML='<option value="">Select section…</option>'; return; }
+  const sections = schoolBuddyState.gradesAndSections.filter(g=>g.grade===grade).map(g=>g.section);
+  $('boSection').innerHTML = '<option value="">Select section…</option>' + sections.map(s=>`<option value="${escHtml(s)}">${escHtml(s)}</option>`).join('');
+  boSectionChange();
+}
+
+function boSectionChange(){
+  $('boProceedBtn').disabled = !($('boGrade').value && $('boSection').value);
+}
+
+async function boViewTeams(){
+  schoolBuddyState.grade   = $('boGrade').value;
+  schoolBuddyState.section = $('boSection').value;
+  $('boGradeSecLabel').textContent = 'Grade '+schoolBuddyState.grade+' · Section '+schoolBuddyState.section;
+  $('boSchoolLabel').textContent   = schoolBuddyState.school+' ('+schoolBuddyState.schoolCode+')';
+  $('boGradeSecStep').style.display='none'; $('boTeamsStep').style.display='block';
+  $('boLoadingTeams').style.display='block'; $('boTeamsList').innerHTML='';
+  $('boGenerateBtn').disabled=true; $('boDownloadAllBtn').style.display='none';
+  $('boGenerateStatus').style.display='none';
+  schoolBuddyState.teams=[]; schoolBuddyState.localArtifacts={};
+  window.scrollTo(0,0);
+
+  const s = getSession(), url = getCfg().url;
+  try{
+    const r = await fetch(url+'?action=getSchoolBuddyTeams'
+      +'&schoolCode='+encodeURIComponent(schoolBuddyState.schoolCode)
+      +'&grade='+encodeURIComponent(schoolBuddyState.grade)
+      +'&section='+encodeURIComponent(schoolBuddyState.section)
+      +'&token='+encodeURIComponent(s.token));
+    const j = await r.json();
+    $('boLoadingTeams').style.display='none';
+    if(j.status==='ok'){
+      schoolBuddyState.teams = j.teams||[];
+      sbRenderTeams(schoolBuddyState.teams, 'boTeamsList');
+    } else {
+      $('boTeamsList').innerHTML='<div class="card preview warn">'+escHtml(j.message||'Error loading teams')+'</div>';
+    }
+  }catch(e){
+    $('boLoadingTeams').style.display='none';
+    $('boTeamsList').innerHTML='<div class="card preview warn">Could not reach server. Check connection.</div>';
+  }
+}
+
+function boBackToGradeStep(){
+  sbWaveCleanup();
+  if(sbMediaRecorder){ try{ sbMediaRecorder.onstop=null; sbMediaRecorder.stop(); }catch(e){} sbMediaRecorder=null; }
+  if(sbRecordingStream){ sbRecordingStream.getTracks().forEach(t=>t.stop()); sbRecordingStream=null; }
+  sbRecordingTeamCode=null; sbRecordedChunks=[];
+  $('boTeamsStep').style.display='none'; $('boGradeSecStep').style.display='block';
+  window.scrollTo(0,0);
 }
 
 function renderBuddyOverview(teams){
@@ -3481,9 +3575,9 @@ function sbBack(){
   window.scrollTo(0,0);
 }
 
-function sbRenderTeams(teams){
+function sbRenderTeams(teams, containerId='sbTeamsList'){
   if(!teams.length){
-    $('sbTeamsList').innerHTML='<div class="card preview warn">No team data found for this grade &amp; section. Ensure Form 3 submission and student data extraction is complete.</div>';
+    $(containerId).innerHTML='<div class="card preview warn">No team data found for this grade &amp; section. Ensure Form 3 submission and student data extraction is complete.</div>';
     return;
   }
   let html='';
@@ -3536,7 +3630,7 @@ function sbRenderTeams(teams){
   </div>
 </div>`;
   });
-  $('sbTeamsList').innerHTML = html;
+  $(containerId).innerHTML = html;
   schoolBuddyState.teams.forEach(t=>sbUpdateTeamStatus(t.teamCode));
   sbUpdateButtons();
 }
@@ -3566,8 +3660,12 @@ function sbUpdateTeamStatus(teamCode){
 function sbUpdateButtons(){
   const hasLocal = schoolBuddyState.teams.some(t=>schoolBuddyState.localArtifacts[t.teamCode]?.photoBase64);
   const hasEval  = schoolBuddyState.teams.some(t=>t.evalCount>0);
-  $('sbGenerateBtn').disabled = !hasLocal;
-  $('sbDownloadAllBtn').style.display = hasEval ? 'block' : 'none';
+  const sbGen=$('sbGenerateBtn'), sbDl=$('sbDownloadAllBtn');
+  if(sbGen) sbGen.disabled = !hasLocal;
+  if(sbDl)  sbDl.style.display = hasEval ? 'block' : 'none';
+  const boGen=$('boGenerateBtn'), boDl=$('boDownloadAllBtn');
+  if(boGen) boGen.disabled = !hasLocal;
+  if(boDl)  boDl.style.display = hasEval ? 'block' : 'none';
 }
 
 async function sbPhotoSelected(teamCode, input){
@@ -3760,10 +3858,12 @@ async function sbAudioSelected(teamCode, input){
   sbMarkAudioReady(teamCode, 'upload');
 }
 
-async function sbGenerateFeedback(){
-  const statusEl=$('sbGenerateStatus');
-  $('sbGenerateBtn').disabled=true;
-  $('sbDownloadAllBtn').disabled=true;
+async function sbGenerateFeedback(ctx='sb'){
+  const statusEl=$(ctx+'GenerateStatus');
+  const genBtn=$(ctx+'GenerateBtn');
+  const dlBtn=$(ctx+'DownloadAllBtn');
+  genBtn.disabled=true;
+  if(dlBtn) dlBtn.disabled=true;
   statusEl.style.display='block'; statusEl.style.color='var(--muted)';
   const s=getSession(), url=getCfg().url;
 
@@ -3845,8 +3945,8 @@ async function sbGenerateFeedback(){
   }catch(e){
     statusEl.style.color='var(--err)'; statusEl.textContent='Could not reach server. Check connection.';
   }
-  $('sbGenerateBtn').disabled=false;
-  $('sbDownloadAllBtn').disabled=false;
+  genBtn.disabled=false;
+  if(dlBtn) dlBtn.disabled=false;
 }
 
 // -------- PDF HELPERS (school buddy) --------

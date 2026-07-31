@@ -57,13 +57,14 @@ var FORM_SCHEMAS = {
       'Teacher Acknowledged'
     ]
   },
-  form5_assessment_data: {
-    tabName: 'Form5_AssessmentData',
+  form5_kits_handover: {
+    tabName: 'Kits_Info',
     columns: [
       'Submission ID', 'Submitted At', 'Form Version', 'Status',
-      'Partner', 'School', 'School Code', 'Grade', 'Section',
-      'Total Students', 'Baseline Date', 'Attendance',
-      'Paper Count', 'Tab Count', 'IIF Team', 'Volunteers'
+      'Partner', 'School', 'School Code',
+      'Delivered By', 'Received By', 'Date of Delivery',
+      'Grades', 'Grade 6 Kit', 'Grade 7 Kit', 'Grade 8 Kit', 'Grade 9 Kit',
+      'Delivery Proof Photo', 'Acknowledgement Letter'
     ]
   }
 };
@@ -226,9 +227,9 @@ function loadPermissions(ss, role) {
 
 function defaultPermissions(role) {
   var r = role.toLowerCase();
-  if (r === 'admin')  return { form1:true, form2:true, form3:true, form4:true, iifDash:true, tracker:true, editSubmit:true, adminPanel:true, buddy:true };
-  if (r === 'iif')    return { form1:true, form2:true, form3:true, form4:true, iifDash:true, tracker:true, editSubmit:true, adminPanel:false, buddy:true };
-  if (r === 'school') return { form1:false, form2:false, form3:false, form4:false, iifDash:false, tracker:false, editSubmit:false, adminPanel:false, buddy:false };
+  if (r === 'admin')  return { form1:true, form2:true, form3:true, form4:true, form5:true, iifDash:true, tracker:true, editSubmit:true, adminPanel:true, buddy:true };
+  if (r === 'iif')    return { form1:true, form2:true, form3:true, form4:true, form5:true, iifDash:true, tracker:true, editSubmit:true, adminPanel:false, buddy:true };
+  if (r === 'school') return { form1:false, form2:false, form3:false, form4:false, form5:false, iifDash:false, tracker:false, editSubmit:false, adminPanel:false, buddy:false };
   return {};
 }
 
@@ -342,7 +343,7 @@ function handleSchoolData(p) {
   var partnerName = getPartnerForSchool(ss, schoolCode);
   var targetSS = partnerName ? getOrCreatePartnerSheet(partnerName, ss) : ss;
   var result = {};
-  var formKeys = ['form1_school_orientation','form2_schools_contact','form3_student_data','form4_sl_selection','form5_assessment_data'];
+  var formKeys = ['form1_school_orientation','form2_schools_contact','form3_student_data','form4_sl_selection','form5_kits_handover'];
   formKeys.forEach(function(fk) {
     var schema = FORM_SCHEMAS[fk];
     if (!schema) return;
@@ -375,7 +376,7 @@ function handleAllSchoolStatus(p) {
   if (!schoolsSheet) return json({ status: 'ok', schools: [] });
   var schoolData = schoolsSheet.getDataRange().getValues();
 
-  var formKeys = ['form1_school_orientation','form2_schools_contact','form3_student_data','form4_sl_selection','form5_assessment_data'];
+  var formKeys = ['form1_school_orientation','form2_schools_contact','form3_student_data','form4_sl_selection','form5_kits_handover'];
   var submitted = {};
   formKeys.forEach(function(fk) { submitted[fk] = {}; });
 
@@ -468,7 +469,7 @@ function handleFormSubmit(payload) {
   var partnerSS = getOrCreatePartnerSheet(partner, ss);
 
   // Block duplicate submissions for school-level forms (Forms 1 & 2)
-  var duplicateGuardForms = ['form1_school_orientation', 'form2_schools_contact'];
+  var duplicateGuardForms = ['form1_school_orientation', 'form2_schools_contact', 'form5_kits_handover'];
   if (!payload.isEdit && duplicateGuardForms.indexOf(payload.formId) !== -1) {
     var checkSheet = partnerSS.getSheetByName(schema.tabName);
     if (checkSheet) {
@@ -572,6 +573,13 @@ function uploadPhotos(payload, ss, partner, partnerSS) {
         extractStudentDataFromPhoto(photoBase64, u1, payload, targetSS, partner, partnerFolderId3);
       }
     }
+  }
+  if (payload.formId === 'form5_kits_handover') {
+    var sc5 = ((payload.header||{}).schoolCode||'SCH').replace(/[^a-zA-Z0-9]/g,'');
+    var up1 = upload(payload.proofPhoto, sc5+'_Kit_DeliveryProof.jpg');
+    var up2 = upload(payload.ackPhoto, sc5+'_Kit_AckLetter.jpg');
+    if (up1) updatePhotoUrl(targetSS, FORM_SCHEMAS[payload.formId], payload.submissionId, 'Delivery Proof Photo', up1);
+    if (up2) updatePhotoUrl(targetSS, FORM_SCHEMAS[payload.formId], payload.submissionId, 'Acknowledgement Letter', up2);
   }
 }
 
@@ -713,7 +721,7 @@ function buildRow(p, schema) {
   else if (p.formId === 'form2_schools_contact') row = buildRowForm2(p);
   else if (p.formId === 'form3_student_data')   row = buildRowForm3(p);
   else if (p.formId === 'form4_sl_selection')   row = buildRowForm4(p);
-  else if (p.formId === 'form5_assessment_data') row = buildRowForm5(p);
+  else if (p.formId === 'form5_kits_handover') row = buildRowForm5(p);
   else row = {};
   return schema.columns.map(function(col) { return row[col] !== undefined ? row[col] : ''; });
 }
@@ -1051,15 +1059,15 @@ function buildRowForm4(p) {
 }
 
 function buildRowForm5(p) {
-  var h=p.header||{}, a=p.assessment||{}, t=p.team||{};
+  var h=p.header||{}, d=p.delivery||{}, gk=d.gradeKits||{};
   return {
     'Submission ID':p.submissionId||'','Submitted At':p.submittedAt||new Date().toISOString(),
     'Form Version':p.formVersion||'','Status':p.isEdit?'edited':'active',
     'Partner':h.partner||'','School':h.school||'','School Code':h.schoolCode||'',
-    'Grade':h.grade||'','Section':h.section||'',
-    'Total Students':a.totalStudents||0,'Baseline Date':a.baselineDate||'',
-    'Attendance':a.attendance||0,'Paper Count':a.paperCount||0,'Tab Count':a.tabCount||0,
-    'IIF Team':t.iif||'','Volunteers':t.volunteers||''
+    'Delivered By':d.deliveredBy||'','Received By':d.receivedBy||'',
+    'Date of Delivery':d.deliveryDate||'','Grades':d.grades||'',
+    'Grade 6 Kit':gk['6']||'','Grade 7 Kit':gk['7']||'','Grade 8 Kit':gk['8']||'','Grade 9 Kit':gk['9']||'',
+    'Delivery Proof Photo':'','Acknowledgement Letter':''
   };
 }
 

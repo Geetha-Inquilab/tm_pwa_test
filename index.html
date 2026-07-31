@@ -1475,15 +1475,24 @@ function showAuthScreen(){
   hideAllScreens();
 }
 
-function bootAfterLogin(){
+async function bootAfterLogin(){
   $('loginScreen').style.display='none';
   $('mainHeader').style.display='block';
   const s=getSession();
-  // Role badge + env chip in header
   const role=(s&&s.role)||'';
   $('hdrRoleBadge').innerHTML=`<span class="role-badge role-${role.toLowerCase()}">${role}</span>`;
   updateEnvChip();
-  // Route by role
+  const _url=getCfg().url;
+  if(s&&s.token&&_url){
+    try{
+      const _pr=await fetch(_url+'?action=getPermissions&token='+encodeURIComponent(s.token));
+      const _pj=await _pr.json();
+      if(_pj.status==='ok'&&_pj.permissions&&_pj.permissions[role]){
+        s.permissions=Object.assign({},s.permissions,_pj.permissions[role]);
+        setSession(s);
+      }
+    }catch(e){}
+  }
   renderMenu();
   if(role==='School'){ showScreen('schoolDash'); }
   else { showScreen('home'); restoreDraft(); }
@@ -1527,7 +1536,7 @@ function renderMenu(){
   });
 }
 
-function showScreen(which){
+async function showScreen(which){
   hideAllScreens();
   $('homeBtn').style.display = (which==='home'||which==='schoolDash') ? 'none' : 'block';
   $('bar').style.width='0%';
@@ -1576,6 +1585,18 @@ function showScreen(which){
     loadUserList();
   } else if(which==='adminPerms'){
     $('adminPerms').style.display='block'; $('hdrTitle').textContent='Access Control';
+    const _ps=getSession(), _pu=getCfg().url;
+    if(_ps&&_pu){
+      try{
+        const _pr=await fetch(_pu+'?action=getPermissions&token='+encodeURIComponent(_ps.token));
+        const _pj=await _pr.json();
+        if(_pj.status==='ok'&&_pj.permissions){
+          ['IIF','School'].forEach(role=>{
+            if(_pj.permissions[role]) Object.assign(permState[role],_pj.permissions[role]);
+          });
+        }
+      }catch(e){}
+    }
     renderPermGrid();
   } else if(which==='buddyScreen'){
     $('buddyScreen').style.display='block'; $('hdrTitle').textContent='Inqui Buddy';

@@ -122,6 +122,7 @@ function doGet(e) {
   if (action === 'allForm4Submissions')      return handleAllForm4Submissions(p);
   if (action === 'getSchoolGradesAndSections') return handleGetSchoolGradesAndSections(p);
   if (action === 'getSchoolBuddyTeams')      return handleGetSchoolBuddyTeams(p);
+  if (action === 'getPermissions')           return handleGetPermissions(p);
 
   return json({ status: 'ok', message: 'TM form backend live' });
 }
@@ -286,7 +287,7 @@ function handleSavePermissions(payload) {
   var sheet = getOrCreatePermissionsTab(ss);
   var perms = payload.permissions || {};
   // perms = { IIF: { form1:true, ... }, School: { form1:false, ... } }
-  var features = ['form1','form2','form3','form4','iifDash','tracker','editSubmit','adminPanel','buddy'];
+  var features = ['form1','form2','form3','form4','form5','iifDash','tracker','editSubmit','adminPanel','buddy'];
   var header = ['Role'].concat(features);
   var rows = [header];
   var roles = ['Admin','IIF','School'];
@@ -299,6 +300,25 @@ function handleSavePermissions(payload) {
   sheet.clearContents();
   sheet.getRange(1, 1, rows.length, header.length).setValues(rows);
   return json({ status: 'ok' });
+}
+
+function handleGetPermissions(p) {
+  var ss = getSheet();
+  var sheet = getOrCreatePermissionsTab(ss);
+  var data = sheet.getDataRange().getValues();
+  if (data.length < 2) return json({ status: 'ok', permissions: {} });
+  var header = data[0];
+  var result = {};
+  for (var i = 1; i < data.length; i++) {
+    var role = String(data[i][0]).trim();
+    if (!role) continue;
+    var rp = {};
+    for (var j = 1; j < header.length; j++) {
+      rp[String(header[j])] = data[i][j] === 'Y';
+    }
+    result[role] = rp;
+  }
+  return json({ status: 'ok', permissions: result });
 }
 
 // -------- GET SCHOOLS --------
@@ -1135,12 +1155,12 @@ function getOrCreatePermissionsTab(ss) {
   var sheet = ss.getSheetByName('RolePermissions');
   if (!sheet) {
     sheet = ss.insertSheet('RolePermissions');
-    var features = ['form1','form2','form3','form4','iifDash','tracker','editSubmit','adminPanel','buddy'];
+    var features = ['form1','form2','form3','form4','form5','iifDash','tracker','editSubmit','adminPanel','buddy'];
     var header = ['Role'].concat(features);
     sheet.appendRow(header);
-    sheet.appendRow(['Admin','Y','Y','Y','Y','Y','Y','Y','Y','Y']);
-    sheet.appendRow(['IIF',  'Y','Y','Y','Y','Y','Y','Y','N','Y']);
-    sheet.appendRow(['School','N','N','N','N','N','N','N','N','N']);
+    sheet.appendRow(['Admin','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y']);
+    sheet.appendRow(['IIF',  'Y','Y','Y','Y','Y','Y','Y','Y','N','Y']);
+    sheet.appendRow(['School','N','N','N','N','N','N','N','N','N','N']);
     sheet.getRange(1,1,1,header.length).setFontWeight('bold').setBackground('#0D3B4A').setFontColor('#FFFFFF');
     sheet.setFrozenRows(1);
   }

@@ -91,8 +91,10 @@ function doPost(e) {
     if (action === 'saveIdeaArtifact')       return handleSaveIdeaArtifact(payload);
     if (action === 'generateSectionFeedback') return handleGenerateSectionFeedback(payload);
     if (action === 'getTeamPhoto')           return handleGetTeamPhoto(payload);
+    if (action === 'saveGradeConfig')        return handleSaveGradeConfig(payload);
 
     // Form submissions (formId present)
+    if (payload.formId === 'session_observation') return handleSessionObsSubmit(payload);
     if (payload.formId) return handleFormSubmit(payload);
 
     return json({ status: 'error', message: 'Unknown action' });
@@ -123,6 +125,8 @@ function doGet(e) {
   if (action === 'getSchoolGradesAndSections') return handleGetSchoolGradesAndSections(p);
   if (action === 'getSchoolBuddyTeams')      return handleGetSchoolBuddyTeams(p);
   if (action === 'getPermissions')           return handleGetPermissions(p);
+  if (action === 'getGradeConfig')           return handleGetGradeConfig(p);
+  if (action === 'getGradeTeams')            return handleGetGradeTeams(p);
 
   return json({ status: 'ok', message: 'TM form backend live' });
 }
@@ -228,9 +232,9 @@ function loadPermissions(ss, role) {
 
 function defaultPermissions(role) {
   var r = role.toLowerCase();
-  if (r === 'admin')  return { form1:true, form2:true, form3:true, form4:true, form5:true, iifDash:true, tracker:true, editSubmit:true, adminPanel:true, buddy:true };
-  if (r === 'iif')    return { form1:true, form2:true, form3:true, form4:true, form5:true, iifDash:true, tracker:true, editSubmit:true, adminPanel:false, buddy:true };
-  if (r === 'school') return { form1:false, form2:false, form3:false, form4:false, form5:false, iifDash:false, tracker:false, editSubmit:false, adminPanel:false, buddy:false };
+  if (r === 'admin')  return { form1:true, form2:true, form3:true, form4:true, form5:true, iifDash:true, tracker:true, editSubmit:true, adminPanel:true, buddy:true, sessionObs:true };
+  if (r === 'iif')    return { form1:true, form2:true, form3:true, form4:true, form5:true, iifDash:true, tracker:true, editSubmit:true, adminPanel:false, buddy:true, sessionObs:true };
+  if (r === 'school') return { form1:false, form2:false, form3:false, form4:false, form5:false, iifDash:false, tracker:false, editSubmit:false, adminPanel:false, buddy:false, sessionObs:false };
   return {};
 }
 
@@ -287,7 +291,7 @@ function handleSavePermissions(payload) {
   var sheet = getOrCreatePermissionsTab(ss);
   var perms = payload.permissions || {};
   // perms = { IIF: { form1:true, ... }, School: { form1:false, ... } }
-  var features = ['form1','form2','form3','form4','form5','iifDash','tracker','editSubmit','adminPanel','buddy'];
+  var features = ['form1','form2','form3','form4','form5','iifDash','tracker','editSubmit','adminPanel','buddy','sessionObs'];
   var header = ['Role'].concat(features);
   var rows = [header];
   var roles = ['Admin','IIF','School'];
@@ -341,14 +345,17 @@ function handleGetSchools() {
   var nameIdx = header.indexOf('school');
   if (nameIdx < 0) nameIdx = header.findIndex(function(h){ return h.indexOf('school') >= 0 && h !== header[codeIdx]; });
   if (nameIdx < 0) nameIdx = 0;
+  var trackIdx = header.indexOf('schooltrack');
+  if (trackIdx < 0) trackIdx = header.findIndex(function(h){ return h.indexOf('track') >= 0; });
 
   var schools = [];
   for (var i = 1; i < data.length; i++) {
     var name = String(data[i][nameIdx] || '').trim();
     if (name) schools.push({
-      name:    name,
-      code:    String(data[i][codeIdx]    || '').trim(),
-      partner: String(data[i][partnerIdx] || '').trim()
+      name:        name,
+      code:        String(data[i][codeIdx]    || '').trim(),
+      partner:     String(data[i][partnerIdx] || '').trim(),
+      schoolTrack: trackIdx >= 0 ? String(data[i][trackIdx] || '').trim() : ''
     });
   }
   return json({ status: 'ok', schools: schools });
@@ -645,8 +652,9 @@ function getPartnerConfig(ss) {
   var header = data[0].map(function(h) { return String(h).trim(); });
   var folderIdx    = header.indexOf('FolderID');         if (folderIdx < 0)   folderIdx = 1;
   var sheetIdx     = header.indexOf('SheetID');          if (sheetIdx < 0)    sheetIdx = 2;
-  var studentDbIdx   = header.indexOf('StudentDbSheetId');   // -1 if column not yet added
-  var ideaFbIdx      = header.indexOf('IdeaFeedbackSheetId'); // -1 if column not yet added
+  var studentDbIdx      = header.indexOf('StudentDbSheetId');    // -1 if column not yet added
+  var ideaFbIdx         = header.indexOf('IdeaFeedbackSheetId'); // -1 if column not yet added
+  var sessionObsIdx     = header.indexOf('SessionObsSheetId');   // -1 if column not yet added
   var config = {};
   for (var i = 1; i < data.length; i++) {
     var name = String(data[i][0] || '').trim();
@@ -654,8 +662,9 @@ function getPartnerConfig(ss) {
     config[name] = {
       folderId:            String(data[i][folderIdx] || '').trim(),
       sheetId:             String(data[i][sheetIdx]  || '').trim(),
-      studentDbSheetId:    studentDbIdx >= 0 ? String(data[i][studentDbIdx] || '').trim() : '',
-      ideaFeedbackSheetId: ideaFbIdx    >= 0 ? String(data[i][ideaFbIdx]    || '').trim() : ''
+      studentDbSheetId:    studentDbIdx  >= 0 ? String(data[i][studentDbIdx]  || '').trim() : '',
+      ideaFeedbackSheetId: ideaFbIdx     >= 0 ? String(data[i][ideaFbIdx]     || '').trim() : '',
+      sessionObsSheetId:   sessionObsIdx >= 0 ? String(data[i][sessionObsIdx] || '').trim() : ''
     };
   }
   return config;
@@ -710,6 +719,14 @@ function getOrCreatePartnerSubFolder(partnerFolderId, subFolderName) {
   var parentFolder = DriveApp.getFolderById(partnerFolderId);
   var iter = parentFolder.getFoldersByName(subFolderName);
   return iter.hasNext() ? iter.next() : parentFolder.createFolder(subFolderName);
+}
+
+function getOrCreateNestedSubFolder(rootFolderId, pathSegments) {
+  var folderId = rootFolderId;
+  pathSegments.forEach(function(seg) {
+    folderId = getOrCreatePartnerSubFolder(folderId, seg).getId();
+  });
+  return DriveApp.getFolderById(folderId);
 }
 
 function getPartnerForSchool(ss, schoolCode) {
@@ -1155,12 +1172,12 @@ function getOrCreatePermissionsTab(ss) {
   var sheet = ss.getSheetByName('RolePermissions');
   if (!sheet) {
     sheet = ss.insertSheet('RolePermissions');
-    var features = ['form1','form2','form3','form4','form5','iifDash','tracker','editSubmit','adminPanel','buddy'];
+    var features = ['form1','form2','form3','form4','form5','iifDash','tracker','editSubmit','adminPanel','buddy','sessionObs'];
     var header = ['Role'].concat(features);
     sheet.appendRow(header);
-    sheet.appendRow(['Admin','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y']);
-    sheet.appendRow(['IIF',  'Y','Y','Y','Y','Y','Y','Y','Y','N','Y']);
-    sheet.appendRow(['School','N','N','N','N','N','N','N','N','N','N']);
+    sheet.appendRow(['Admin','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y']);
+    sheet.appendRow(['IIF',  'Y','Y','Y','Y','Y','Y','Y','Y','N','Y','Y']);
+    sheet.appendRow(['School','N','N','N','N','N','N','N','N','N','N','N']);
     sheet.getRange(1,1,1,header.length).setFontWeight('bold').setBackground('#0D3B4A').setFontColor('#FFFFFF');
     sheet.setFrozenRows(1);
   }
@@ -2066,4 +2083,368 @@ function handleGetTeamPhoto(payload) {
   } catch(e) {
     return json({ status: 'error', message: 'Could not read file: ' + e.message });
   }
+}
+
+// ======================================================================
+// GRADE CONFIG
+// ======================================================================
+
+function getOrCreateGradeConfigTab(ss) {
+  var sheet = ss.getSheetByName('GradeConfig');
+  if (!sheet) {
+    sheet = ss.insertSheet('GradeConfig');
+    sheet.appendRow(['Partner', 'SchoolTrack', 'Grade', 'Level']);
+    sheet.getRange(1, 1, 1, 4).setFontWeight('bold').setBackground('#0D3B4A').setFontColor('#FFFFFF');
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function handleGetGradeConfig(p) {
+  var ss = getSheet();
+  var sheet = getOrCreateGradeConfigTab(ss);
+  var data = sheet.getDataRange().getValues();
+  if (data.length < 2) return json({ status: 'ok', configs: [] });
+  var numCols = data[0].length;
+  var configs = [];
+  for (var i = 1; i < data.length; i++) {
+    var partner, schoolTrack, grade, level;
+    if (numCols >= 4) {
+      // current format: Partner | SchoolTrack | Grade | Level
+      partner     = String(data[i][0] || '').trim();
+      schoolTrack = String(data[i][1] || '').trim();
+      grade       = String(data[i][2] || '').trim();
+      level       = String(data[i][3] || '').trim();
+    } else if (numCols === 3) {
+      // previous format: Partner | Grade | Level (no track)
+      partner = String(data[i][0] || '').trim(); schoolTrack = '';
+      grade   = String(data[i][1] || '').trim();
+      level   = String(data[i][2] || '').trim();
+    } else {
+      // original global format: Grade | Level
+      partner = ''; schoolTrack = '';
+      grade   = String(data[i][0] || '').trim();
+      level   = String(data[i][1] || '').trim();
+    }
+    if (!grade || !level) continue;
+    configs.push({ partner: partner, schoolTrack: schoolTrack, grade: grade, level: level });
+  }
+  return json({ status: 'ok', configs: configs });
+}
+
+function handleGetGradeTeams(p) {
+  var schoolCode = (p.schoolCode || '').trim().toUpperCase();
+  var grade = (p.grade || '').trim();
+  if (!schoolCode || !grade) return json({ status: 'error', message: 'schoolCode and grade required' });
+
+  var ss = getSheet();
+  var partner = getPartnerForSchool(ss, schoolCode);
+
+  // Check if Form 3 was submitted for this school+grade
+  var hasForm3 = false;
+  if (partner) {
+    var partnerSS = getOrCreatePartnerSheet(partner, ss);
+    var f3sheet = partnerSS.getSheetByName('Students_Count_Info');
+    if (f3sheet) {
+      var f3data = f3sheet.getDataRange().getValues();
+      var f3h = f3data[0];
+      var scI = f3h.indexOf('School Code'), grI = f3h.indexOf('Grade'), stI = f3h.indexOf('Status');
+      for (var i = 1; i < f3data.length; i++) {
+        if (String(f3data[i][scI]).trim().toUpperCase() !== schoolCode) continue;
+        if (String(f3data[i][grI]).trim() !== grade) continue;
+        if (stI >= 0 && String(f3data[i][stI]).toLowerCase() === 'superseded') continue;
+        hasForm3 = true; break;
+      }
+    }
+  }
+  if (!hasForm3) return json({ status: 'ok', teams: [], state: 'no_form3' });
+
+  // Look up Student Database sheet for this partner
+  var pCfg = getPartnerConfig(ss);
+  var pEntry = (pCfg[partner] || {});
+  var dbSheetId = pEntry.studentDbSheetId || '';
+  if (!dbSheetId) return json({ status: 'ok', teams: [], state: 'not_extracted' });
+
+  try {
+    var dbSS = SpreadsheetApp.openById(dbSheetId);
+    var tab = dbSS.getSheetByName(schoolCode);
+    if (!tab) return json({ status: 'ok', teams: [], state: 'not_extracted' });
+
+    var rows = tab.getDataRange().getValues();
+    var hdr = rows[0];
+    var gradeIdx = hdr.indexOf('Grade'), tcIdx = hdr.indexOf('Team Code'), secIdx = hdr.indexOf('Section');
+    var seen = {}, teams = [];
+    for (var r = 1; r < rows.length; r++) {
+      if (String(rows[r][gradeIdx]).trim() !== grade) continue;
+      var tc = String(rows[r][tcIdx]).trim();
+      if (!tc || seen[tc]) continue;
+      seen[tc] = true;
+      teams.push({ teamCode: tc, section: String(rows[r][secIdx]).trim() });
+    }
+    return json({ status: 'ok', teams: teams, state: teams.length ? 'ok' : 'not_extracted' });
+  } catch(e) {
+    return json({ status: 'ok', teams: [], state: 'not_extracted' });
+  }
+}
+
+function handleSaveGradeConfig(payload) {
+  var ss = getSheet();
+  var sheet = getOrCreateGradeConfigTab(ss);
+  var lastRow = sheet.getLastRow();
+  if (lastRow > 1) sheet.deleteRows(2, lastRow - 1);
+  var gradeConfigs = payload.gradeConfigs || [];
+  gradeConfigs.forEach(function(gc) {
+    if (gc.grade && gc.level) sheet.appendRow([String(gc.partner||''), String(gc.schoolTrack||''), String(gc.grade), String(gc.level)]);
+  });
+  return json({ status: 'ok' });
+}
+
+// ======================================================================
+// SESSION OBSERVATIONS
+// ======================================================================
+
+var SO_COLUMNS = [
+  'Submission ID','Submitted At','Submitted By','Form Version','Status',
+  'Partner','School','School Code','School Track','Role','Your Name',
+  'Level','Unit','Session Name','Date',
+  'Q1 SLs Present','Q2 SL Absent Reason',
+  'Q3 Support SL Role','Q4 Teacher Involvement',
+  'Q5 Videos Played','Q6 No Video Reason','Q7 Video Method','Q8 Video Played By','Q9 Students Follow Video',
+  'Q10 Timing','Q11 Attention Activity','Q12 Timer Used','Q13 Time Keeper',
+  'Q14 Session Photos','Q15 Optional Feedback',
+  'Q16 Workbook Photos',
+  'Q17a SL Guide Used','Q17b SL Guide Feedback',
+  'Session Q1 Engagement','Session Q2 Understanding','Session Q3 Completion','Session Q4 Support',
+  'Session Q5 Focus Skill','Session Q6 Focus Skill Desc',
+  'Activity 1 Q1','Activity 1 Q2','Activity 1 Q3',
+  'Activity 2 Q1','Activity 2 Q2','Activity 2 Q3',
+  'Activity 3 Q1','Activity 3 Q2','Activity 3 Q3','Activity 3 Q4',
+  'Activity 4 Q1','Activity 4 Q2','Activity 4 Q3',
+  'Activity 5 Q1','Activity 5 Q2','Activity 5 Q3','Activity 5 Q4',
+  'Q18 SL Language','Q19 SL Clarity',
+  'Q20 MMS Kit','Q20 MMS Kit Feedback',
+  'Q21 Standout','Q22 Experience'
+];
+
+function updatePartnerSessionObsSheetId(ss, partnerName, sheetId) {
+  var sheet = getOrCreatePartnerConfigTab(ss);
+  var data = sheet.getDataRange().getValues();
+  var header = data[0].map(function(h) { return String(h).trim(); });
+  var colIdx = header.indexOf('SessionObsSheetId');
+  if (colIdx < 0) {
+    colIdx = header.length;
+    sheet.getRange(1, colIdx + 1).setValue('SessionObsSheetId');
+  }
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0] || '').trim() === partnerName) {
+      sheet.getRange(i + 1, colIdx + 1).setValue(sheetId);
+      return;
+    }
+  }
+}
+
+function getOrCreateSessionObsSheet(partner, ss) {
+  var pCfg = getPartnerConfig(ss);
+  var pEntry = pCfg[partner];
+  if (!pEntry) throw new Error('Partner not found: ' + partner);
+  if (pEntry.sessionObsSheetId) {
+    try { return SpreadsheetApp.openById(pEntry.sessionObsSheetId); } catch(e) {}
+  }
+  if (!pEntry.folderId) throw new Error('No FolderID for partner: ' + partner);
+  var folder = DriveApp.getFolderById(pEntry.folderId);
+  var newSheet = SpreadsheetApp.create('SessionObservationData - ' + partner);
+  var file = DriveApp.getFileById(newSheet.getId());
+  folder.addFile(file);
+  DriveApp.getRootFolder().removeFile(file);
+  updatePartnerSessionObsSheetId(ss, partner, newSheet.getId());
+  return newSheet;
+}
+
+function getOrCreateSessionObsTab(soSheet, level, session) {
+  var tabName = 'L' + level + '-S' + session;
+  var tab = soSheet.getSheetByName(tabName);
+  if (!tab) {
+    tab = soSheet.insertSheet(tabName);
+    tab.appendRow(SO_COLUMNS);
+    tab.getRange(1, 1, 1, SO_COLUMNS.length).setFontWeight('bold').setBackground('#0D3B4A').setFontColor('#FFFFFF');
+    tab.setFrozenRows(1);
+  }
+  return tab;
+}
+
+function buildRowSessionObs(payload) {
+  var h = payload.header || {};
+  var c = payload.common || {};
+  var t = payload.teacher || {};
+  var iif = payload.iif || {};
+  var acts = iif.activities || {};
+  var sq = iif.sessionQs || {};
+  var row = {
+    'Submission ID': payload.submissionId || '',
+    'Submitted At': payload.submittedAt || new Date().toISOString(),
+    'Submitted By': payload.submittedBy || '',
+    'Form Version': payload.formVersion || '1.0',
+    'Status': 'active',
+    'Partner': h.partner || '',
+    'School': h.school || '',
+    'School Code': h.schoolCode || '',
+    'School Track': h.schoolTrack || '',
+    'Role': h.role || '',
+    'Your Name': h.yourName || '',
+    'Level': String(h.level || ''),
+    'Unit': String(h.unit || '1'),
+    'Session Name': h.sessionName || '',
+    'Date': h.date || '',
+    'Q1 SLs Present': c.q1 || '',
+    'Q2 SL Absent Reason': c.q2 || '',
+    'Q3 Support SL Role': c.q3 || '',
+    'Q4 Teacher Involvement': c.q4 || '',
+    'Q5 Videos Played': c.q5 || '',
+    'Q6 No Video Reason': c.q6 || '',
+    'Q7 Video Method': c.q7 || '',
+    'Q8 Video Played By': Array.isArray(c.q8) ? c.q8.join(', ') : (c.q8 || ''),
+    'Q9 Students Follow Video': c.q9 || '',
+    'Q10 Timing': c.q10 || '',
+    'Q11 Attention Activity': c.q11 || '',
+    'Q12 Timer Used': Array.isArray(c.q12) ? c.q12.join(', ') : (c.q12 || ''),
+    'Q13 Time Keeper': Array.isArray(c.q13) ? c.q13.join(', ') : (c.q13 || ''),
+    'Q14 Session Photos': '',
+    'Q15 Optional Feedback': c.q15 || '',
+    'Q16 Workbook Photos': '',
+    'Q17a SL Guide Used': iif.q17a || '',
+    'Q17b SL Guide Feedback': iif.q17b || '',
+    'Session Q1 Engagement': sq.sq1 || '',
+    'Session Q2 Understanding': sq.sq2 || '',
+    'Session Q3 Completion': sq.sq3 || '',
+    'Session Q4 Support': sq.sq4 || '',
+    'Session Q5 Focus Skill': sq.sq5 || '',
+    'Session Q6 Focus Skill Desc': sq.sq6 || '',
+    'Activity 1 Q1': (acts['1'] && acts['1'].q1) || '',
+    'Activity 1 Q2': (acts['1'] && acts['1'].q2) || '',
+    'Activity 1 Q3': (acts['1'] && acts['1'].q3) || '',
+    'Activity 2 Q1': (acts['2'] && acts['2'].q1) || '',
+    'Activity 2 Q2': (acts['2'] && acts['2'].q2) || '',
+    'Activity 2 Q3': (acts['2'] && acts['2'].q3) || '',
+    'Activity 3 Q1': (acts['3'] && acts['3'].q1) || '',
+    'Activity 3 Q2': (acts['3'] && acts['3'].q2) || '',
+    'Activity 3 Q3': (acts['3'] && acts['3'].q3) || '',
+    'Activity 3 Q4': (acts['3'] && acts['3'].q4) || '',
+    'Activity 4 Q1': (acts['4'] && acts['4'].q1) || '',
+    'Activity 4 Q2': (acts['4'] && acts['4'].q2) || '',
+    'Activity 4 Q3': (acts['4'] && acts['4'].q3) || '',
+    'Activity 5 Q1': (acts['5'] && acts['5'].q1) || '',
+    'Activity 5 Q2': (acts['5'] && acts['5'].q2) || '',
+    'Activity 5 Q3': (acts['5'] && acts['5'].q3) || '',
+    'Activity 5 Q4': (acts['5'] && acts['5'].q4) || '',
+    'Q18 SL Language': iif.q18 || '',
+    'Q19 SL Clarity': iif.q19 || '',
+    'Q20 MMS Kit': iif.q20 || '',
+    'Q20 MMS Kit Feedback': iif.q20Feedback || '',
+    'Q21 Standout': iif.q21 || '',
+    'Q22 Experience': iif.q22 || ''
+  };
+  return SO_COLUMNS.map(function(col) { return row[col] !== undefined ? row[col] : ''; });
+}
+
+function updateSOPhotoUrl(tab, submissionId, colName, url) {
+  var data = tab.getDataRange().getValues();
+  if (data.length < 1) return;
+  var header = data[0];
+  var sidIdx = header.indexOf('Submission ID');
+  if (sidIdx < 0) return;
+  var colIdx = header.indexOf(colName);
+  if (colIdx < 0) {
+    colIdx = header.length;
+    tab.getRange(1, colIdx + 1).setValue(colName);
+  }
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][sidIdx]) === String(submissionId)) {
+      tab.getRange(i + 1, colIdx + 1).setValue(url);
+      return;
+    }
+  }
+}
+
+function handleSessionObsSubmit(payload) {
+  var ss = getSheet();
+  var partner = (payload.header || {}).partner || '';
+  if (!partner) return json({ status: 'error', message: 'Partner is required for Session Observations.' });
+
+  var level = String((payload.header || {}).level || '');
+  var session = String((payload.header || {}).session || '');
+  if (!level || !session) return json({ status: 'error', message: 'Level and session are required.' });
+
+  var soSheet = getOrCreateSessionObsSheet(partner, ss);
+  var tab = getOrCreateSessionObsTab(soSheet, level, session);
+  var row = buildRowSessionObs(payload);
+  tab.appendRow(row);
+
+  // Upload photos — structured folder hierarchy
+  var pCfg = getPartnerConfig(ss);
+  var pEntry = pCfg[partner] || {};
+
+  var schoolCode = ((payload.header || {}).schoolCode || 'SCH').replace(/[^a-zA-Z0-9]/g, '_');
+  var grade = String((payload.header || {}).grade || '').replace(/[^a-zA-Z0-9]/g, '_') || 'Unknown';
+  var sid = payload.submissionId || '';
+  var yearLabel    = 'Year_' + level;
+  var gradeLabel   = 'Grade_' + grade;
+  var sessionLabel = 'Session_' + session;
+
+  var sessionPhotosFolder, workbookPhotosFolder, activityPhotosFolder;
+  try {
+    if (pEntry.folderId) {
+      var sessionBaseFolder = getOrCreateNestedSubFolder(pEntry.folderId, [
+        'TM_SessionPhotos', yearLabel, gradeLabel, sessionLabel
+      ]);
+      sessionPhotosFolder  = getOrCreatePartnerSubFolder(sessionBaseFolder.getId(), 'Session_Photos');
+      workbookPhotosFolder = getOrCreatePartnerSubFolder(sessionBaseFolder.getId(), 'Workbook_Photos');
+      activityPhotosFolder = getOrCreatePartnerSubFolder(sessionBaseFolder.getId(), 'Activity_Photos');
+    }
+  } catch(e) {}
+  var fallbackFolder = getOrCreateDriveFolder('TM_SessionPhotos');
+  if (!sessionPhotosFolder)  sessionPhotosFolder  = fallbackFolder;
+  if (!workbookPhotosFolder) workbookPhotosFolder = fallbackFolder;
+  if (!activityPhotosFolder) activityPhotosFolder = fallbackFolder;
+
+  function uploadFile(photoObj, fileName, targetFolder) {
+    if (!photoObj || !photoObj.data) return null;
+    try {
+      var blob = Utilities.newBlob(Utilities.base64Decode(photoObj.data), photoObj.mime || 'image/jpeg', fileName);
+      var file = targetFolder.createFile(blob);
+      try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(e2) {}
+      return file.getUrl();
+    } catch(e) { return null; }
+  }
+
+  if (payload.common && payload.common.q14Photo) {
+    var u14 = uploadFile(payload.common.q14Photo, schoolCode + '_' + sid + '_session.jpg', sessionPhotosFolder);
+    if (u14) updateSOPhotoUrl(tab, sid, 'Q14 Session Photos', u14);
+  }
+  var q16Teams = (payload.teacher || {}).q16Teams || [];
+  var q16Urls = [];
+  q16Teams.forEach(function(tp) {
+    if (!tp.photo) return;
+    var fileName = (tp.teamCode || 'TEAM') + '_WBPG_' + (tp.fileTag || 'Q16') + '.jpg';
+    var url = uploadFile(tp.photo, fileName, workbookPhotosFolder);
+    if (url) q16Urls.push(url);
+  });
+  if (q16Urls.length) {
+    updateSOPhotoUrl(tab, sid, 'Q16 Workbook Photos', q16Urls.join(', '));
+  }
+  // IIF activity photo uploads
+  var iif = payload.iif || {};
+  var acts = iif.activities || {};
+  ['1','2','3','4','5'].forEach(function(actNum) {
+    var act = acts[actNum] || {};
+    if (act.q3Photo) {
+      var uAct = uploadFile(act.q3Photo, schoolCode + '_' + sid + '_act' + actNum + '_q3.jpg', activityPhotosFolder);
+      if (uAct) updateSOPhotoUrl(tab, sid, 'Activity ' + actNum + ' Q3', uAct);
+    }
+    if (act.q4Photo) {
+      var uAct4 = uploadFile(act.q4Photo, schoolCode + '_' + sid + '_act' + actNum + '_q4.jpg', activityPhotosFolder);
+      if (uAct4) updateSOPhotoUrl(tab, sid, 'Activity ' + actNum + ' Q4', uAct4);
+    }
+  });
+
+  return json({ status: 'success', submissionId: sid });
 }

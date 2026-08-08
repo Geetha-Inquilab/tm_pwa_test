@@ -127,6 +127,8 @@ function doGet(e) {
   if (action === 'getPermissions')           return handleGetPermissions(p);
   if (action === 'getGradeConfig')           return handleGetGradeConfig(p);
   if (action === 'getGradeTeams')            return handleGetGradeTeams(p);
+  if (action === 'getSessionObs')            return handleGetSessionObs(p);
+  if (action === 'getSessionObsDetail')      return handleGetSessionObsDetail(p);
 
   return json({ status: 'ok', message: 'TM form backend live' });
 }
@@ -2206,7 +2208,7 @@ function handleSaveGradeConfig(payload) {
 var SO_COLUMNS = [
   'Submission ID','Submitted At','Submitted By','Form Version','Status',
   'Partner','School','School Code','School Track','Role','Your Name',
-  'Level','Unit','Session Name','Date',
+  'Level','Grade','Unit','Session Name','Date',
   'Q1 SLs Present','Q2 SL Absent Reason',
   'Q3 Support SL Role','Q4 Teacher Involvement',
   'Q5 Videos Played','Q6 No Video Reason','Q7 Video Method','Q8 Video Played By','Q9 Students Follow Video',
@@ -2292,6 +2294,7 @@ function buildRowSessionObs(payload) {
     'Role': h.role || '',
     'Your Name': h.yourName || '',
     'Level': String(h.level || ''),
+    'Grade': String(h.grade || ''),
     'Unit': String(h.unit || '1'),
     'Session Name': h.sessionName || '',
     'Date': h.date || '',
@@ -2416,16 +2419,19 @@ function handleSessionObsSubmit(payload) {
     } catch(e) { return null; }
   }
 
-  if (payload.common && payload.common.q14Photo) {
-    var u14 = uploadFile(payload.common.q14Photo, schoolCode + '_' + sid + '_session.jpg', sessionPhotosFolder);
-    if (u14) updateSOPhotoUrl(tab, sid, 'Q14 Session Photos', u14);
-  }
-  var q16Teams = (payload.teacher || {}).q16Teams || [];
+  var q14Photos = (payload.common && payload.common.q14Photos) || [];
+  var q14Urls = [];
+  q14Photos.forEach(function(photo, idx) {
+    var url = uploadFile(photo, schoolCode + '_' + sid + '_session_' + (idx+1) + '.jpg', sessionPhotosFolder);
+    if (url) q14Urls.push(url);
+  });
+  if (q14Urls.length) updateSOPhotoUrl(tab, sid, 'Q14 Session Photos', q14Urls.join(', '));
+  var q16Files = (payload.teacher || {}).q16Files || [];
   var q16Urls = [];
-  q16Teams.forEach(function(tp) {
-    if (!tp.photo) return;
-    var fileName = (tp.teamCode || 'TEAM') + '_WBPG_' + (tp.fileTag || 'Q16') + '.jpg';
-    var url = uploadFile(tp.photo, fileName, workbookPhotosFolder);
+  q16Files.forEach(function(fp) {
+    if (!fp.photo) return;
+    var fileName = 'WBPG_' + (fp.fileTag || 'Q16') + '_' + (fp.photo.name || 'photo.jpg');
+    var url = uploadFile(fp.photo, fileName, workbookPhotosFolder);
     if (url) q16Urls.push(url);
   });
   if (q16Urls.length) {
@@ -2436,15 +2442,101 @@ function handleSessionObsSubmit(payload) {
   var acts = iif.activities || {};
   ['1','2','3','4','5'].forEach(function(actNum) {
     var act = acts[actNum] || {};
-    if (act.q3Photo) {
-      var uAct = uploadFile(act.q3Photo, schoolCode + '_' + sid + '_act' + actNum + '_q3.jpg', activityPhotosFolder);
-      if (uAct) updateSOPhotoUrl(tab, sid, 'Activity ' + actNum + ' Q3', uAct);
-    }
-    if (act.q4Photo) {
-      var uAct4 = uploadFile(act.q4Photo, schoolCode + '_' + sid + '_act' + actNum + '_q4.jpg', activityPhotosFolder);
-      if (uAct4) updateSOPhotoUrl(tab, sid, 'Activity ' + actNum + ' Q4', uAct4);
-    }
+    ['q3','q4'].forEach(function(qKey) {
+      var photos = act[qKey+'Photos'];
+      if (!photos || !photos.length) return;
+      var urls = [];
+      photos.forEach(function(photo, idx) {
+        var fileName = schoolCode+'_'+sid+'_act'+actNum+'_'+qKey+'_'+(idx+1)+'.jpg';
+        var url = uploadFile(photo, fileName, activityPhotosFolder);
+        if (url) urls.push(url);
+      });
+      if (urls.length) updateSOPhotoUrl(tab, sid, 'Activity '+actNum+' '+qKey.toUpperCase(), urls.join(', '));
+    });
   });
 
   return json({ status: 'success', submissionId: sid });
+}
+
+function handleGetSessionObsDetail(p) {
+  var schoolCode = (p.schoolCode || '').trim().toUpperCase();
+  var level      = String(p.level || '').trim();
+  var sessionNum = String(p.sessionNum || '').trim();
+  if (!schoolCode || !level || !sessionNum) return json({ status:'error', message:'schoolCode, level and sessionNum required' });
+
+  var ss = getSheet();
+  var partnerName = getPartnerForSchool(ss, schoolCode);
+  if (!partnerName) return json({ status:'error', message:'Partner not found' });
+
+  var soSheet = getOrCreateSessionObsSheet(partnerName, ss);
+  var tabName = 'L' + level + '-S' + sessionNum;
+  var tab = soSheet.getSheetByName(tabName);
+  if (!tab) return json({ status:'error', message:'No data found' });
+
+  var data = tab.getDataRange().getValues();
+  if (data.length < 2) return json({ status:'error', message:'No submissions found' });
+  var header = data[0];
+  var scIdx     = header.indexOf('School Code');
+  var roleIdx   = header.indexOf('Role');
+  var statusIdx = header.indexOf('Status');
+
+  var teacherRow = null, iifRow = null;
+  for (var i = 1; i < data.length; i++) {
+    if (teacherRow && iifRow) break;
+    var rowSC   = String(data[i][scIdx]   || '').trim().toUpperCase();
+    var rowRole = String(data[i][roleIdx] || '').trim();
+    var rowSt   = statusIdx >= 0 ? String(data[i][statusIdx] || '').toLowerCase() : '';
+    if (rowSC !== schoolCode || rowSt === 'superseded') continue;
+    if (rowRole === 'Teacher'      && !teacherRow) teacherRow = data[i];
+    if (rowRole === 'IIF Observer' && !iifRow)     iifRow     = data[i];
+  }
+  if (!teacherRow && !iifRow) return json({ status:'error', message:'Submission not found' });
+  var toObj = function(row) {
+    if (!row) return null;
+    var obj = {};
+    header.forEach(function(col, idx) { obj[col] = row[idx]; });
+    return obj;
+  };
+  return json({ status:'ok', teacherSubmission: toObj(teacherRow), iifSubmission: toObj(iifRow) });
+}
+
+function handleGetSessionObs(p) {
+  var schoolCode = (p.schoolCode || '').trim().toUpperCase();
+  var level      = String(p.level || '').trim();
+  if (!schoolCode || !level) return json({ status: 'error', message: 'schoolCode and level required' });
+
+  var ss = getSheet();
+  var partnerName = getPartnerForSchool(ss, schoolCode);
+  if (!partnerName) return json({ status: 'ok', submitted: [] });
+
+  var soSheet = getOrCreateSessionObsSheet(partnerName, ss);
+  var submitted = [];
+  var iifSubmitted = [];
+  var MAX_SESSIONS = 6;
+
+  for (var sess = 1; sess <= MAX_SESSIONS; sess++) {
+    var tabName = 'L' + level + '-S' + sess;
+    var tab = soSheet.getSheetByName(tabName);
+    if (!tab) continue;
+    var data = tab.getDataRange().getValues();
+    if (data.length < 2) continue;
+    var header = data[0];
+    var scIdx     = header.indexOf('School Code');
+    var roleIdx   = header.indexOf('Role');
+    var statusIdx = header.indexOf('Status');
+    var teacherFound = false, iifFound = false;
+    for (var i = 1; i < data.length; i++) {
+      if (teacherFound && iifFound) break;
+      var rowSC   = String(data[i][scIdx]   || '').trim().toUpperCase();
+      if (rowSC !== schoolCode) continue;
+      var rowRole = String(data[i][roleIdx] || '').trim();
+      var rowSt   = statusIdx >= 0 ? String(data[i][statusIdx] || '').toLowerCase() : '';
+      if (rowSt === 'superseded') continue;
+      if (rowRole === 'Teacher')      teacherFound = true;
+      if (rowRole === 'IIF Observer') iifFound     = true;
+    }
+    if (teacherFound) submitted.push(sess);
+    if (iifFound)     iifSubmitted.push(sess);
+  }
+  return json({ status: 'ok', submitted: submitted, iifSubmitted: iifSubmitted });
 }

@@ -168,20 +168,18 @@
       <div class="login-logo">
         <div class="k">Inqui-Lab · Think &amp; Make</div>
         <h1>THINK &amp; MAKE 2026-27</h1>
-        <p style="color:var(--muted);font-size:14px;margin:4px 0 0">Implementation Tracker</p>
       </div>
       <div class="card">
-        <label>Email <span class="req">*</span></label>
-        <input id="loginEmail" type="email" inputmode="email" placeholder="your@email.com" autocomplete="email" />
-        <label>PIN <span class="req">*</span></label>
-        <input id="loginPin" type="password" inputmode="numeric" placeholder="Enter your PIN" autocomplete="current-password" />
+        <label>Enter username <span class="req">*</span></label>
+        <input id="loginEmail" type="text" inputmode="email" placeholder="Enter username" autocomplete="username" />
+        <label>Password <span class="req">*</span></label>
+        <div style="position:relative">
+          <input id="loginPin" type="password" placeholder="Enter your password" autocomplete="current-password" style="width:100%;box-sizing:border-box;padding-right:44px" />
+          <button type="button" id="togglePin" onclick="(function(){var i=$('loginPin'),b=$('togglePin');if(i.type==='password'){i.type='text';b.innerHTML='<svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><line x1=&quot;1&quot; y1=&quot;1&quot; x2=&quot;23&quot; y2=&quot;23&quot;/><path d=&quot;M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94&quot;/><path d=&quot;M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19&quot;/><path d=&quot;M14.12 14.12a3 3 0 1 1-4.24-4.24&quot;/></svg>';}else{i.type='password';b.innerHTML='<svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><path d=&quot;M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z&quot;/><circle cx=&quot;12&quot; cy=&quot;12&quot; r=&quot;3&quot;/></svg>';}})()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:0;color:var(--muted);display:flex;align-items:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </div>
         <div class="err-msg show" id="loginErr" style="display:none;margin-top:8px"></div>
         <button class="btn-login" id="loginBtn">Login</button>
       </div>
-      <p style="text-align:center;font-size:12px;color:var(--muted);margin-top:12px">
-        Contact your admin if you don't have access. &nbsp;·&nbsp;
-        <button onclick="openCfg()" style="background:none;border:none;color:var(--blue);font-size:12px;font-weight:600;cursor:pointer;padding:0">⚙ Configure backend</button>
-      </p>
     </div>
   </div>
 </div>
@@ -591,17 +589,17 @@
     <div class="sec-title"><span class="tag">School</span> <span id="sdSchoolName">Your School</span></div>
     <p class="hint" style="margin:0">Your school's submitted data. Contact IIF for updates.</p>
   </div>
+  <div id="sdSessionObsCard" class="card" style="display:none;cursor:pointer;text-align:center;padding:20px" onclick="showScreen('sessionObsHome')">
+    <div style="font-size:28px;margin-bottom:6px">👁</div>
+    <div style="font-weight:700;font-size:16px;color:var(--navy)">Unit 1 Session Observations</div>
+    <div style="font-size:13px;color:var(--muted);margin-top:4px">Record session feedback</div>
+  </div>
+  <div id="sdContent"><p style="text-align:center;color:var(--muted);padding:40px 0">Loading…</p></div>
   <div id="sdBuddyCard" class="card" style="display:none;cursor:pointer;text-align:center;padding:20px" onclick="showScreen('buddyScreen')">
     <div style="font-size:28px;margin-bottom:6px">★</div>
     <div style="font-weight:700;font-size:16px;color:var(--navy)">Inqui Buddy</div>
     <div style="font-size:13px;color:var(--muted);margin-top:4px">Innovation Evaluator</div>
   </div>
-  <div id="sdSessionObsCard" class="card" style="display:none;cursor:pointer;text-align:center;padding:20px" onclick="showScreen('sessionObsHome')">
-    <div style="font-size:28px;margin-bottom:6px">👁</div>
-    <div style="font-weight:700;font-size:16px;color:var(--navy)">Session Observations</div>
-    <div style="font-size:13px;color:var(--muted);margin-top:4px">Record session feedback</div>
-  </div>
-  <div id="sdContent"><p style="text-align:center;color:var(--muted);padding:40px 0">Loading…</p></div>
 </main>
 
 <!-- IIF AGGREGATE DASHBOARD -->
@@ -695,6 +693,18 @@
 </main>
 
 <!-- PASSWORD MODAL -->
+<div id="logoutModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:16px;padding:28px 24px;max-width:320px;width:90%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.2)">
+    <div style="font-size:20px;margin-bottom:8px">↩</div>
+    <div style="font-size:16px;font-weight:700;color:var(--navy,#0D3B4A);margin-bottom:6px">Log out?</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:20px">You will need to log in again to continue.</div>
+    <div style="display:flex;gap:10px">
+      <button id="logoutCancelBtn" style="flex:1;background:#f0f0f0;border:none;border-radius:12px;padding:13px;font-weight:700;cursor:pointer;font-size:14px;color:#333">Cancel</button>
+      <button id="logoutConfirmBtn" style="flex:1;background:var(--primary,#0D3B4A);border:none;border-radius:12px;padding:13px;font-weight:700;cursor:pointer;font-size:14px;color:#fff">Log out</button>
+    </div>
+  </div>
+</div>
+
 <div id="auPinModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center">
   <div style="background:#fff;border-radius:16px;padding:28px 24px;max-width:340px;width:90%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.2)">
     <div style="font-size:14px;color:var(--muted);margin-bottom:4px">Password generated</div>
@@ -706,24 +716,6 @@
 
 <!-- ADMIN: ACCESS CONTROL -->
 <main id="adminPerms" style="display:none">
-  <div class="card">
-    <div class="sec-title"><span class="tag">Admin</span> Role Access Control</div>
-    <p class="hint" style="margin:0 0 10px">Toggle which features each role can access. Admin access is always on.</p>
-    <div style="overflow-x:auto">
-      <table class="perm-grid" id="permGrid">
-        <thead>
-          <tr>
-            <th>Role</th>
-            <th>Form 1</th><th>Form 2</th><th>Form 3</th><th>Form 4</th><th>Form 5</th>
-            <th>IIF Dash</th><th>Tracker</th><th>Edit</th><th>Admin</th><th>Buddy</th><th>Session Obs</th>
-          </tr>
-        </thead>
-        <tbody id="permBody"></tbody>
-      </table>
-    </div>
-    <button class="btn-submit" id="savePermsBtn" style="border:none;border-radius:12px;padding:13px;font-weight:700;cursor:pointer;width:100%;margin-top:16px">Save Permissions</button>
-  </div>
-
   <!-- Grade-to-Level Configuration -->
   <div class="card" style="margin-top:16px">
     <div class="sec-title"><span class="tag">Admin</span> Grade-to-Level Configuration</div>
@@ -754,7 +746,7 @@
     </div>
   </div>
   <div style="padding:0 0 20px">
-    <button id="soHomeNextBtn" class="btn-submit" disabled style="border:none;border-radius:12px;padding:14px;font-weight:700;cursor:pointer;width:100%" onclick="showScreen('sessionObsUnits')">Next →</button>
+    <button id="soHomeNextBtn" class="btn-submit" disabled style="border:none;border-radius:12px;padding:14px;font-weight:700;cursor:pointer;width:100%" onclick="soSelectUnit(1)">Next →</button>
   </div>
 </main>
 
@@ -1516,14 +1508,18 @@ const SESSION_KEY='tm_session';
 function getSession(){ try{ return JSON.parse(localStorage.getItem(SESSION_KEY)||'null'); }catch(e){ return null; } }
 function setSession(s){ localStorage.setItem(SESSION_KEY,JSON.stringify(s)); }
 function clearSession(){ localStorage.removeItem(SESSION_KEY); }
+function clearUserData(){
+  localStorage.removeItem(DRAFT_KEY);
+  Object.keys(localStorage).filter(k=>k.startsWith('tm_schools_')).forEach(k=>localStorage.removeItem(k));
+}
 
 function sessionToken(){ const s=getSession(); return s?s.token:''; }
 function hasPerm(key){
-  const s=getSession(); if(!s||!s.permissions) return false;
-  if(key in s.permissions) return !!s.permissions[key];
+  const s=getSession(); if(!s) return false;
   const r=(s.role||'').toLowerCase();
   if(r==='admin') return true;
-  if(r==='iif') return ['form1','form2','form3','form4','form5','iifDash','tracker','editSubmit','buddy','sessionObs'].includes(key);
+  if(r==='iif') return ['form1','form2','form3','form4','form5','buddy','sessionObs'].includes(key);
+  if(r==='school') return ['form1','form2','form3','form4','buddy','sessionObs'].includes(key);
   return false;
 }
 
@@ -1556,13 +1552,27 @@ function showLoginErr(msg){ const el=$('loginErr'); el.textContent=msg; el.style
 
 /* --- Logout --- */
 $('logoutBtn').onclick=()=>{
-  if(confirm('Log out?')){ clearSession(); showAuthScreen(); }
+  const m=$('logoutModal'); m.style.display='flex';
+};
+$('logoutCancelBtn').onclick=()=>{ $('logoutModal').style.display='none'; };
+$('logoutConfirmBtn').onclick=async()=>{
+  $('logoutModal').style.display='none';
+  const q=JSON.parse(localStorage.getItem(QUEUE_KEY)||'[]');
+  if(q.length){ await flushQueue(); }
+  clearUserData();
+  clearSession();
+  showAuthScreen();
 };
 
 function showAuthScreen(){
   $('loginScreen').style.display='block';
   $('mainHeader').style.display='none';
   hideAllScreens();
+  $('loginEmail').value='';
+  $('loginPin').value='';
+  $('loginBtn').disabled=false;
+  $('loginBtn').textContent='Login';
+  $('loginErr').style.display='none';
 }
 
 async function bootAfterLogin(){
@@ -1572,17 +1582,6 @@ async function bootAfterLogin(){
   const role=(s&&s.role)||'';
   $('hdrRoleBadge').innerHTML=`<span class="role-badge role-${role.toLowerCase()}">${role}</span>`;
   updateEnvChip();
-  const _url=getCfg().url;
-  if(s&&s.token&&_url){
-    try{
-      const _pr=await fetch(_url+'?action=getPermissions&token='+encodeURIComponent(s.token));
-      const _pj=await _pr.json();
-      if(_pj.status==='ok'&&_pj.permissions&&_pj.permissions[role]){
-        s.permissions=Object.assign({},s.permissions,_pj.permissions[role]);
-        setSession(s);
-      }
-    }catch(e){}
-  }
   renderMenu();
   if(role==='School'){ showScreen('schoolDash'); }
   else { showScreen('home'); restoreDraft(); }
@@ -1601,17 +1600,17 @@ function hideAllScreens(){
 }
 
 const MENU_ITEMS = [
-  { id:'form1', title:'Form 1 · School Enrollment Data',    perm:'form1',      icon:'📋' },
-  { id:'form2', title:'Form 2 · Schools Contact Info',      perm:'form2',      icon:'🏫' },
-  { id:'form3', title:'Form 3 · Students Count Info',       perm:'form3',      icon:'👥' },
-  { id:'form4', title:'Form 4 · SL Selection Assessment',   perm:'form4',      icon:'⭐' },
-  { id:'form5', title:'Form 5 · Kits Handover Info',         perm:'form5',      icon:'📦' },
+  { id:'form1', title:'School Enrollment Data',    perm:'form1',      icon:'📋' },
+  { id:'form2', title:'Schools Contact Info',      perm:'form2',      icon:'🏫' },
+  { id:'form3', title:'Students Count Info',       perm:'form3',      icon:'👥' },
+  { id:'form4', title:'SL Selection Assessment',   perm:'form4',      icon:'⭐' },
+  { id:'form5', title:'Kits Handover Info',        perm:'form5',      icon:'📦' },
   { id:'iifDash',      title:'School Dashboard',            perm:'iifDash',    icon:'🏫' },
   { id:'trackerScreen',title:'Form Completion Tracker',     perm:'tracker',    icon:'✅' },
   { id:'adminUsers',   title:'Admin · User Management',     perm:'adminPanel', icon:'👤' },
   { id:'adminPerms',   title:'Admin · Access Control',      perm:'adminPanel', icon:'🔒' },
   { id:'buddyScreen',  title:'Inqui Buddy · Innovation Evaluator', perm:'buddy', icon:'★' },
-  { id:'sessionObsHome', title:'Session Observations', perm:'sessionObs', icon:'👁' },
+  { id:'sessionObsHome', title:'Unit 1 Session Observations', perm:'sessionObs', icon:'👁' },
 ];
 
 function renderMenu(){
@@ -1628,6 +1627,12 @@ function renderMenu(){
 }
 
 async function showScreen(which){
+  if(!isGoingBack && currentScreen && currentScreen!==which && which!=='home' && which!=='schoolDash'){
+    navStack.push(currentScreen);
+  }
+  if(which==='home'||which==='schoolDash') navStack=[];
+  currentScreen=which;
+  isGoingBack=false;
   hideAllScreens();
   $('homeBtn').style.display = (which==='home'||which==='schoolDash') ? 'none' : 'block';
   $('bar').style.width='0%';
@@ -1676,19 +1681,6 @@ async function showScreen(which){
     loadUserList();
   } else if(which==='adminPerms'){
     $('adminPerms').style.display='block'; $('hdrTitle').textContent='Access Control';
-    const _ps=getSession(), _pu=getCfg().url;
-    if(_ps&&_pu){
-      try{
-        const _pr=await fetch(_pu+'?action=getPermissions&token='+encodeURIComponent(_ps.token));
-        const _pj=await _pr.json();
-        if(_pj.status==='ok'&&_pj.permissions){
-          ['IIF','School'].forEach(role=>{
-            if(_pj.permissions[role]) Object.assign(permState[role],_pj.permissions[role]);
-          });
-        }
-      }catch(e){}
-    }
-    renderPermGrid();
     loadPartnerGradeConfig();
   } else if(which==='buddyScreen'){
     $('buddyScreen').style.display='block'; $('hdrTitle').textContent='Inqui Buddy';
@@ -1702,24 +1694,29 @@ async function showScreen(which){
     $('schoolBuddyScreen').style.display='block'; $('hdrTitle').textContent='Inqui Buddy · School';
     loadSchoolBuddyScreen();
   } else if(which==='sessionObsHome'){
-    $('sessionObsHome').style.display='block'; $('hdrTitle').textContent='Session Observations';
+    $('sessionObsHome').style.display='block'; $('hdrTitle').textContent='Unit 1 Session Observations';
     initSOHome();
   } else if(which==='sessionObsUnits'){
-    $('sessionObsUnits').style.display='block'; $('hdrTitle').textContent='Session Observations · Units';
+    $('sessionObsUnits').style.display='block'; $('hdrTitle').textContent='Unit 1 Session Observations · Units';
   } else if(which==='sessionObsSessions'){
-    $('sessionObsSessions').style.display='block'; $('hdrTitle').textContent='Session Observations · Sessions';
+    $('sessionObsSessions').style.display='block'; $('hdrTitle').textContent='Unit 1 Session Observations · Sessions';
     renderSOSessions();
   } else if(which==='sessionObsForm'){
     $('sessionObsForm').style.display='block'; $('footerSO').style.display='block';
-    $('hdrTitle').textContent='Session Observation Form';
+    $('hdrTitle').textContent='Unit 1 Session Observation Form';
     initSessionObsForm();
   }
   window.scrollTo(0,0);
 }
 $('homeBtn').onclick=()=>{
-  const s=getSession();
-  if(s&&s.role==='School'){ showScreen('schoolDash'); }
-  else { showScreen('home'); }
+  if(navStack.length>0){
+    isGoingBack=true;
+    showScreen(navStack.pop());
+  } else {
+    const s=getSession();
+    if(s&&s.role==='School'){ showScreen('schoolDash'); }
+    else { showScreen('home'); }
+  }
 };
 
 /* ============================================================
@@ -1783,12 +1780,14 @@ function showSchoolMenu(){
       cardStyle=btnFillable;
     }
     html+=`<button onclick="${action}" style="${cardStyle}">
-      <span class="tag">${f.tag}</span> ${f.title}${status}
+      ${f.title}${status}
       <span style="float:right;font-size:13px;color:var(--blue);font-weight:600">${actionLabel}</span>
     </button>`;
   });
   if(hasPerm('buddy')){
-    html+=`<button onclick="showScreen('buddyScreen')" style="${btnSubmitted}">&#9733; Inqui Buddy &middot; Innovation Evaluator</button>`;
+  }
+  if(hasPerm('buddy')){
+    $('sdBuddyCard').style.display='block';
   }
   if(hasPerm('sessionObs')){
     $('sdSessionObsCard').style.display='block';
@@ -1816,6 +1815,8 @@ function openSchoolForm(which){
 
 async function showSchoolFormDetail(which){
   if(!sdData) return;
+  $('sdSessionObsCard').style.display='none';
+  $('sdBuddyCard').style.display='none';
   $('homeBtn').style.display='block';
   const d1=sdData['form1_school_orientation'], d2=sdData['form2_schools_contact'],
         d3=sdData['form3_student_data'];
@@ -2199,67 +2200,6 @@ $('auSave').onclick=async()=>{
     } else toast(j.message||'Error saving user.');
   }catch(e){ toast('Could not save user.'); }
   $('auSave').disabled=false;
-};
-
-/* ============================================================
-   ADMIN: PERMISSIONS GRID
-   ============================================================ */
-const PERM_FEATURES=[
-  {key:'form1',label:'Form 1'},{key:'form2',label:'Form 2'},
-  {key:'form3',label:'Form 3'},{key:'form4',label:'Form 4'},
-  {key:'form5',label:'Form 5'},
-  {key:'iifDash',label:'IIF Dash'},{key:'tracker',label:'Tracker'},
-  {key:'editSubmit',label:'Edit'},{key:'adminPanel',label:'Admin'},
-  {key:'buddy',label:'Buddy'},{key:'sessionObs',label:'Session Obs'}
-];
-const PERM_ROLES=['IIF','School'];
-let permState={
-  IIF:{form1:true,form2:true,form3:true,form4:true,form5:true,iifDash:true,tracker:true,editSubmit:true,adminPanel:false,buddy:true,sessionObs:true},
-  School:{form1:false,form2:false,form3:false,form4:false,form5:false,iifDash:false,tracker:false,editSubmit:false,adminPanel:false,buddy:false,sessionObs:false}
-};
-
-function renderPermGrid(){
-  const tbody=$('permBody'); tbody.innerHTML='';
-  PERM_ROLES.forEach(role=>{
-    const tr=document.createElement('tr');
-    let html=`<td>${role}</td>`;
-    PERM_FEATURES.forEach(f=>{
-      const checked=permState[role]&&permState[role][f.key];
-      // Admin panel locked for non-Admin roles
-      const locked=(f.key==='adminPanel');
-      html+=`<td><div class="toggle-wrap">
-        <label class="toggle">
-          <input type="checkbox" data-role="${role}" data-key="${f.key}" ${checked?'checked':''} ${locked?'disabled':''}>
-          <span class="toggle-slider"></span>
-        </label></div></td>`;
-    });
-    tr.innerHTML=html;
-    tbody.appendChild(tr);
-  });
-  // Admin row — all locked on
-  const adminTr=document.createElement('tr');
-  let adminHtml='<td>Admin</td>';
-  PERM_FEATURES.forEach(()=>{ adminHtml+='<td><div class="toggle-wrap"><label class="toggle"><input type="checkbox" checked disabled><span class="toggle-slider"></span></label></div></td>'; });
-  adminTr.innerHTML=adminHtml;
-  tbody.appendChild(adminTr);
-
-  // Wire toggles
-  tbody.querySelectorAll('input[type=checkbox][data-role]').forEach(cb=>{
-    cb.onchange=()=>{ permState[cb.dataset.role][cb.dataset.key]=cb.checked; };
-  });
-}
-
-$('savePermsBtn').onclick = async () => {
-  const s=getSession(); if(!s) return;
-  const url=getCfg().url; if(!url){ toast('Backend URL not set.'); return; }
-  $('savePermsBtn').disabled=true;
-  try{
-    const r=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify({action:'savePermissions',token:s.token,permissions:permState})});
-    const j=await r.json();
-    toast(j.status==='ok'?'Permissions saved ✓':j.message||'Error.');
-  }catch(e){ toast('Could not save permissions.'); }
-  $('savePermsBtn').disabled=false;
 };
 
 /* ---------- Form 2: Schools Contact Info ---------- */
@@ -4369,11 +4309,14 @@ async function sbDownloadAllPDF(){
 
 // ---------- State ----------
 let soState = { partner:'', school:'', schoolCode:'', schoolTrack:'', grade:'', level:0, unit:1, sessionIndex:0, sessionName:'', role:'', yourName:'' };
+let navStack = [];
+let currentScreen = null;
+let isGoingBack = false;
 let soAnswers = {};
 let soPhotos = {};
 let soSchoolGrades = [];
 let soGradeConfigData = [];
-let soGradeTeams = null; // {teams:[{teamCode,section}], state:'ok'|'no_form3'|'not_extracted'} | null
+
 
 // ---------- Session names per Level ----------
 const SO_SESSIONS = {
@@ -4389,29 +4332,51 @@ const SO_ACTIVITY_NA = {
   '3_1':[5,6],'3_2':[6],'3_3':[6],'3_4':[6],'3_5':[5,6],'3_6':[5,6]
 };
 
+// ---------- Activity names per level_session_actNum ----------
+const SO_ACTIVITY_NAMES = {
+  '1_1_1':'Set Up','1_1_2':'Game Time','1_1_3':'Welcome to Think and Make','1_1_4':'Team Rules, Name & Logo',
+  '1_2_1':'Focus Skill','1_2_2':'How do products change over time?','1_2_3':'Bicycle story','1_2_4':'Spot the change','1_2_5':'Summary and Reflections',
+  '1_3_1':'Focus Skill','1_3_2':'Why this Shape?','1_3_3':'Colour has a job','1_3_4':"You're the designer now",'1_3_5':'Summary and Reflections',
+  '1_4_1':'Focus Skill','1_4_2':'Same product for different users','1_4_3':'Redesign and Sketch','1_4_4':'Build and Present',
+  '1_5_1':'Focus Skill','1_5_2':'What is Biomimicry?','1_5_3':'Biomimicry Examples','1_5_4':'Design Challenge',
+  '1_6_1':'Focus Skill','1_6_2':'Products using Biomimicry','1_6_3':'Design your Product','1_6_4':'Unit Reflection',
+  '2_1_1':'Set-Up','2_1_2':'Introduction to Think & Make','2_1_3':'Survival Challenge','2_1_4':'Skill Builder','2_1_5':'Team Identity',
+  '2_2_1':'Focus Skill- Compassion','2_2_2':'User and User need','2_2_3':'Magic of different products','2_2_4':'Designing for User need',
+  '2_3_1':'Focus skill-Critical Thinking','2_3_2':'Why this Shape?','2_3_3':'Colour has a Job!','2_3_4':"You're the designer now",'2_3_5':'Team Reflection & Summary',
+  '2_4_1':'Focus skill- Critical Thinking','2_4_2':'Different materials and uses','2_4_3':'Examples of materials','2_4_4':'The library challenge',
+  '2_5_1':'Focus Skill- Creativity','2_5_2':'Steps of designing solutions','2_5_3':'Ideation','2_5_4':'Final sketch',
+  '2_6_1':'Focus Skill- Creativity and Communication','2_6_2':'Prototyping after feedback','2_6_3':'Gallery walk','2_6_4':'Unit Reflection',
+  '3_1_1':'Set up','3_1_2':'Introduction to Think & Make','3_1_3':'Lets Recall from Grade 7','3_1_4':'Introduction to Skills',
+  '3_2_1':'Focus Skill','3_2_2':'Our team','3_2_3':'Problem solving process','3_2_4':'Problem Solving Detectives','3_2_5':'Summary & Reflections',
+  '3_3_1':'Focus Skill','3_3_2':'Steps of understanding problem','3_3_3':'Causes, Effects and Stakeholders','3_3_4':'Problem Tree!','3_3_5':'Mystery in Chandrapuram',
+  '3_4_1':'Focus Skill','3_4_2':'Types of Solutions','3_4_3':'Rule Solution','3_4_4':'Implementation','3_4_5':'Summary & Reflections',
+  '3_5_1':'Focus Skill','3_5_2':'Steps of Building Quality Solution','3_5_3':'Prototype','3_5_4':'Steps for Implementation',
+  '3_6_1':'Focus Skill','3_6_2':'Improve your Solution','3_6_3':'Gallery Walk Presentation','3_6_4':'Unit Reflction'
+};
+
 // ---------- Activity extra questions per level_session (after standard Q1, Q2) ----------
 const PCT_OPTS = ['< 25%','25–50%','50–75%','75–100%'];
 const SCALE5_LABELS_TEAM = ['Struggled to work together, unclear roles','Some friction, roles unclear for parts','Worked together with occasional confusion','Cooperated well, minor rough patches','Came together naturally, worked well right away'];
 const SO_ACTIVITY_EXTRAS = {
-  '1_1': { 1: [{id:'aq3',type:'scale5',text:'How would you describe the way this team came together for their very first activity?',labels:SCALE5_LABELS_TEAM,required:false}] },
-  '1_3': { 4: [{id:'aq3',type:'photo',text:'Artefacts — Upload photos from workbook Page 52 & 53 (one per SL)',required:false}] },
-  '1_5': { 4: [{id:'aq3',type:'photo',text:'Artefacts — Upload photos from workbook Page 80 & 82 (one per SL)',required:false}] },
+  '1_1': { 1: [{id:'aq3',type:'scale5',text:'How would you describe the way this team came together for their very first activity?',labels:SCALE5_LABELS_TEAM,required:true}] },
+  '1_3': { 4: [{id:'aq3',type:'photo',text:'Artefacts — Upload photos from workbook Page 52 & 53 (one per SL)',required:true}] },
+  '1_5': { 4: [{id:'aq3',type:'photo',text:'Artefacts — Upload photos from workbook Page 80 & 82 (one per SL)',required:true}] },
   '2_1': {
-    1: [{id:'aq3',type:'scale5',text:'How would you describe the way this team came together for their very first activity?',labels:SCALE5_LABELS_TEAM,required:false}],
-    3: [{id:'aq3',type:'textarea',text:'Any specific notes on the length of "Survival Challenge"? Did this activity delay the whole session?',required:false}]
+    1: [{id:'aq3',type:'scale5',text:'How would you describe the way this team came together for their very first activity?',labels:SCALE5_LABELS_TEAM,required:true}],
+    3: [{id:'aq3',type:'textarea',text:'Any specific notes on the length of "Survival Challenge"? Did this activity delay the whole session?',required:true}]
   },
-  '2_2': { 4: [{id:'aq3',type:'scale5',text:'How independently were students able to follow the video instructions with minimal SL support?',labels:['Required constant SL support','Required significant SL support','Required moderate SL support','Required minimal SL support','Followed instructions independently'],required:false}] },
-  '2_3': { 5: [{id:'aq3',type:'textarea',text:'Did all students participate in the team reflection, or was it completed by one person?',required:false}] },
-  '2_4': { 2: [{id:'aq3',type:'scale5',text:'How was the concept of "properties of materials" for students to grasp?',labels:['Very difficult, most students struggled','Somewhat difficult, needed a lot of re-explaining','Moderate, understood with some help','Fairly easy, most grasped it quickly','Very easy, understood right away'],required:false}] },
-  '2_5': { 3: [{id:'aq3',type:'dropdown',text:'What percentage of students actively participated and offered their own ideas during individual ideation?',opts:PCT_OPTS,required:false},{id:'aq4',type:'photo',text:'Upload photos — one per cluster from workbook Page 78–84',required:false}] },
-  '2_6': { 2: [{id:'aq3',type:'photo',text:'Artefacts — Upload photos from workbook Page 91 (one per cluster) and Page 93 (optional)',required:false}] },
-  '3_1': { 1: [{id:'aq3',type:'scale5',text:'How would you describe the way this team came together for their very first activity?',labels:SCALE5_LABELS_TEAM,required:false}] },
-  '3_2': { 3: [{id:'aq3',type:'dropdown',text:'What percentage of teams correctly matched the scenes to the steps of the problem-solving process (pg. 28)?',opts:PCT_OPTS,required:false}] },
-  '3_3': { 5: [{id:'aq3',type:'dropdown',text:'How many teams correctly identified the causes and effects from the dialogues of people?',opts:PCT_OPTS,required:false},{id:'aq4',type:'photo',text:'Upload photos — one per SL from workbook Page 48–49',required:false}] },
-  '3_4': { 3: [{id:'aq3',type:'dropdown',text:'In what percentage of teams did all team members take part in creating the rule card?',opts:PCT_OPTS,required:false},{id:'aq4',type:'photo',text:'Upload photos — one per SL from workbook Page 64',required:false}] },
-  '3_5': { 2: [{id:'aq3',type:'dropdown',text:'How many students were able to think of their own ideas during individual ideation?',opts:PCT_OPTS,required:false}] },
+  '2_2': { 4: [{id:'aq3',type:'scale5',text:'How independently were students able to follow the video instructions with minimal SL support?',labels:['Required constant SL support','Required significant SL support','Required moderate SL support','Required minimal SL support','Followed instructions independently'],required:true}] },
+  '2_3': { 5: [{id:'aq3',type:'textarea',text:'Did all students participate in the team reflection, or was it completed by one person?',required:true}] },
+  '2_4': { 2: [{id:'aq3',type:'scale5',text:'How was the concept of "properties of materials" for students to grasp?',labels:['Very difficult, most students struggled','Somewhat difficult, needed a lot of re-explaining','Moderate, understood with some help','Fairly easy, most grasped it quickly','Very easy, understood right away'],required:true}] },
+  '2_5': { 3: [{id:'aq3',type:'dropdown',text:'What percentage of students actively participated and offered their own ideas during individual ideation?',opts:PCT_OPTS,required:true},{id:'aq4',type:'photo',text:'Upload photos — one per cluster from workbook Page 78–84',required:true}] },
+  '2_6': { 2: [{id:'aq3',type:'photo',text:'Artefacts — Upload photos from workbook Page 91 (one per cluster) and Page 93',required:true}] },
+  '3_1': { 1: [{id:'aq3',type:'scale5',text:'How would you describe the way this team came together for their very first activity?',labels:SCALE5_LABELS_TEAM,required:true}] },
+  '3_2': { 3: [{id:'aq3',type:'dropdown',text:'What percentage of teams correctly matched the scenes to the steps of the problem-solving process (pg. 28)?',opts:PCT_OPTS,required:true}] },
+  '3_3': { 5: [{id:'aq3',type:'dropdown',text:'How many teams correctly identified the causes and effects from the dialogues of people?',opts:PCT_OPTS,required:true},{id:'aq4',type:'photo',text:'Upload photos — one per SL from workbook Page 48–49',required:true}] },
+  '3_4': { 3: [{id:'aq3',type:'dropdown',text:'In what percentage of teams did all team members take part in creating the rule card?',opts:PCT_OPTS,required:true},{id:'aq4',type:'photo',text:'Upload photos — one per SL from workbook Page 64',required:true}] },
+  '3_5': { 2: [{id:'aq3',type:'dropdown',text:'How many students were able to think of their own ideas during individual ideation?',opts:PCT_OPTS,required:true}] },
   '3_6': {
-    2: [{id:'aq3',type:'scale4',text:'How well did the teams use their Inqui-Buddy\'s feedback to improve their solution?',labels:['< 25% of teams used the feedback to make changes','Around 25% of teams used the feedback','About 50% of teams used the feedback','More than 70% of teams used the feedback'],required:false}]
+    2: [{id:'aq3',type:'scale4',text:'How well did the teams use their Inqui-Buddy\'s feedback to improve their solution?',labels:['< 25% of teams used the feedback to make changes','Around 25% of teams used the feedback','About 50% of teams used the feedback','More than 70% of teams used the feedback'],required:true}]
   }
 };
 
@@ -4650,9 +4615,21 @@ function soSelectGrade(grade){
   $('soHomeNextBtn').disabled=!grade||!lvl;
 }
 
-function soSelectUnit(n){
+async function soSelectUnit(n){
   soState.unit=n;
+  soState.submittedSessions=[];
   showScreen('sessionObsSessions');
+  $('soSessionCards').innerHTML='<p style="text-align:center;color:var(--muted);padding:20px">Loading…</p>';
+  try{
+    const s=getSession(); const url=getCfg().url;
+    const r=await fetch(`${url}?action=getSessionObs&token=${encodeURIComponent(s.token)}&schoolCode=${encodeURIComponent(soState.schoolCode)}&level=${encodeURIComponent(soState.level)}`);
+    const j=await r.json();
+    if(j.status==='ok'){
+      soState.submittedSessions=j.submitted||[];
+      soState.iifSubmittedSessions=j.iifSubmitted||[];
+    }
+  }catch(e){ soState.submittedSessions=[]; }
+  renderSOSessions();
 }
 
 function renderSOSessions(){
@@ -4660,17 +4637,112 @@ function renderSOSessions(){
   const sessions=SO_SESSIONS[lvl]||[];
   $('soSessionsTitle').textContent='Unit '+soState.unit+' · Sessions (Level '+lvl+')';
   $('soSessionsSubtitle').textContent='Select the session you observed today. School: '+soState.school;
-  $('soSessionCards').innerHTML=sessions.map((name,i)=>`
-    <button onclick="soSelectSession(${i})" style="border:1px solid var(--line);border-radius:14px;padding:16px;text-align:left;background:#fff;cursor:pointer;font-size:15px;font-weight:600;color:var(--navy)">
-      <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:4px">SESSION ${i+1}</div>
-      <div>${name}</div>
-    </button>`).join('');
+  const btnBase='display:block;width:100%;text-align:left;margin-bottom:12px;padding:18px 16px;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;color:var(--navy)';
+  const isIIF=(soState.role==='iif'||soState.role==='admin');
+  const greenBadge=lbl=>`<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:#DCFCE7;color:#15803D;vertical-align:middle;margin-right:4px">&#10003; ${lbl}</span>`;
+  const grayBadge=lbl=>`<span style="font-size:11px;font-weight:400;color:var(--muted);vertical-align:middle;margin-right:4px">${lbl}: not filled</span>`;
+  $('soSessionCards').innerHTML=sessions.map((name,i)=>{
+    const sessNum=i+1;
+    const teacherDone=(soState.submittedSessions||[]).indexOf(sessNum)>-1;
+    const iifDone=(soState.iifSubmittedSessions||[]).indexOf(sessNum)>-1;
+    const actionDone=isIIF?iifDone:teacherDone;
+    const teacherBadge=teacherDone?greenBadge('Teacher'):grayBadge('Teacher');
+    const iifBadge=iifDone?greenBadge('IIF'):grayBadge('IIF');
+    const statusRow=isIIF
+      ?`${teacherBadge}${iifBadge}`
+      :teacherDone
+        ?greenBadge('Submitted')
+        :`<span style="font-size:11px;font-weight:400;color:var(--muted)">Not yet submitted</span>`;
+    const actionLabel=actionDone?'View &rsaquo;':'Fill Form &rsaquo;';
+    const cardStyle=actionDone
+      ?btnBase+';background:#fff;border:1px solid var(--line)'
+      :btnBase+';background:var(--pastel);border:1.5px solid var(--blue)';
+    const clickFn=actionDone?`soViewSession(${i})`:`soSelectSession(${i})`;
+    return `<button onclick="${clickFn}" style="${cardStyle}">
+      <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:4px;text-transform:uppercase">Session ${sessNum}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span>${name}</span>
+        <span style="font-size:13px;color:var(--blue);font-weight:600;flex-shrink:0;margin-left:8px">${actionLabel}</span>
+      </div>
+      <div>${statusRow}</div>
+    </button>`;
+  }).join('');
 }
 
 function soSelectSession(idx){
   soState.sessionIndex=idx;
   soState.sessionName=(SO_SESSIONS[soState.level]||[])[idx]||'';
   showScreen('sessionObsForm');
+}
+
+async function soViewSession(idx){
+  soState.sessionIndex=idx;
+  soState.sessionName=(SO_SESSIONS[soState.level]||[])[idx]||'';
+  showScreen('sessionObsForm');
+  $('footerSO').style.display='none';
+  $('soCtxSchool').textContent=soState.school;
+  $('soCtxMeta').textContent='Level '+soState.level+' · Unit '+soState.unit+' · Session '+(idx+1)+' · '+soState.sessionName;
+  $('soCtxDate').textContent='';
+  $('soFormContent').innerHTML='<p style="text-align:center;color:var(--muted);padding:24px">Loading…</p>';
+  try{
+    const s=getSession(); const url=getCfg().url;
+    const r=await fetch(`${url}?action=getSessionObsDetail&token=${encodeURIComponent(s.token)}&schoolCode=${encodeURIComponent(soState.schoolCode)}&level=${encodeURIComponent(soState.level)}&sessionNum=${encodeURIComponent(idx+1)}`);
+    const j=await r.json();
+    if(j.status!=='ok'){ $('soFormContent').innerHTML='<div class="card"><p class="hint">Could not load submission.</p></div>'; return; }
+    const backBtn=`<button onclick="showScreen('sessionObsSessions')" style="background:none;border:none;color:var(--blue);font-size:14px;font-weight:600;cursor:pointer;padding:0 0 12px 0">&#8592; Back to sessions</button>`;
+    const row=(label,val)=>`<tr><td style="font-weight:600;padding:10px 12px;width:45%;border-bottom:1px solid var(--line)">${label}</td><td style="padding:10px 12px;border-bottom:1px solid var(--line)">${val||'—'}</td></tr>`;
+    const submittedBadge='<span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;background:#DCFCE7;color:#15803D;display:inline-block;margin-bottom:12px">&#10003; Submitted</span>';
+    const pendingBadge='<span style="font-size:12px;font-weight:400;padding:3px 10px;border-radius:20px;background:#F3F4F6;color:var(--muted);display:inline-block;margin-bottom:12px">Not yet submitted</span>';
+    const commonRows=(d)=>
+      row('Submitted by',d['Your Name'])
+      +row('Submitted on',d['Submitted At']?new Date(d['Submitted At']).toLocaleDateString('en-IN'):'')
+      +row('Date',d['Date'])
+      +row('Grade',d['Grade'])
+      +row('Q1 — SLs present?',d['Q1 SLs Present'])
+      +row('Q2 — SL absent reason',d['Q2 SL Absent Reason'])
+      +row('Q3 — Support SL role',d['Q3 Support SL Role'])
+      +row('Q4 — Teacher involvement',d['Q4 Teacher Involvement'])
+      +row('Q5 — Videos played?',d['Q5 Videos Played'])
+      +row('Q6 — No video reason',d['Q6 No Video Reason'])
+      +row('Q7 — Video method',d['Q7 Video Method'])
+      +row('Q8 — Video played by',Array.isArray(d['Q8 Video Played By'])?d['Q8 Video Played By'].join(', '):d['Q8 Video Played By'])
+      +row('Q9 — Students follow video?',d['Q9 Students Follow Video'])
+      +row('Q10 — Timing',d['Q10 Timing'])
+      +row('Q11 — Attention activity',d['Q11 Attention Activity'])
+      +row('Q12 — Timer used?',Array.isArray(d['Q12 Timer Used'])?d['Q12 Timer Used'].join(', '):d['Q12 Timer Used'])
+      +row('Q13 — Time keeper',d['Q13 Time Keeper'])
+      +row('Q15 — Feedback',d['Q15 Optional Feedback']);
+    const iifRows=(d)=>commonRows(d)
+      +row('Q17a — SL Guide used?',d['Q17a SL Guide Used'])
+      +row('Q17b — SL Guide feedback',d['Q17b SL Guide Feedback'])
+      +row('Session Q1 — Engagement',d['Session Q1 Engagement'])
+      +row('Session Q2 — Understanding',d['Session Q2 Understanding'])
+      +row('Session Q3 — Completion',d['Session Q3 Completion'])
+      +row('Session Q4 — Support',d['Session Q4 Support'])
+      +row('Session Q5 — Focus skill',d['Session Q5 Focus Skill'])
+      +row('Session Q6 — Focus skill desc',d['Session Q6 Focus Skill Desc'])
+      +row('Activity 1 Q1',d['Activity 1 Q1'])+row('Activity 1 Q2',d['Activity 1 Q2'])+row('Activity 1 Q3',d['Activity 1 Q3'])
+      +row('Activity 2 Q1',d['Activity 2 Q1'])+row('Activity 2 Q2',d['Activity 2 Q2'])+row('Activity 2 Q3',d['Activity 2 Q3'])
+      +row('Activity 3 Q1',d['Activity 3 Q1'])+row('Activity 3 Q2',d['Activity 3 Q2'])+row('Activity 3 Q3',d['Activity 3 Q3'])+row('Activity 3 Q4',d['Activity 3 Q4'])
+      +row('Activity 4 Q1',d['Activity 4 Q1'])+row('Activity 4 Q2',d['Activity 4 Q2'])+row('Activity 4 Q3',d['Activity 4 Q3'])
+      +row('Activity 5 Q1',d['Activity 5 Q1'])+row('Activity 5 Q2',d['Activity 5 Q2'])+row('Activity 5 Q3',d['Activity 5 Q3'])+row('Activity 5 Q4',d['Activity 5 Q4'])
+      +row('Q18 — SL language',d['Q18 SL Language'])
+      +row('Q19 — SL clarity',d['Q19 SL Clarity'])
+      +row('Q20 — MMS Kit',d['Q20 MMS Kit'])
+      +row('Q21 — Standout',d['Q21 Standout'])
+      +row('Q22 — Experience',d['Q22 Experience']);
+    const makeCard=(roleLabel,d,rowsFn)=>{
+      if(!d) return `<div class="card" style="margin-bottom:12px"><div class="sec-title">${roleLabel}</div>${pendingBadge}</div>`;
+      return `<div class="card" style="margin-bottom:12px"><div class="sec-title">${roleLabel}</div>${submittedBadge}<table style="width:100%;border-collapse:collapse">${rowsFn(d)}</table></div>`;
+    };
+    const sessionTitle=`<div style="font-weight:700;font-size:16px;color:var(--navy);margin-bottom:12px">Session ${idx+1} · ${soState.sessionName}</div>`;
+    const isIIF=(soState.role==='iif'||soState.role==='admin');
+    $('soFormContent').innerHTML=backBtn+sessionTitle
+      +makeCard('Teacher Submission',j.teacherSubmission,commonRows)
+      +(isIIF?makeCard('IIF Observation',j.iifSubmission,iifRows):'');
+  }catch(e){
+    $('soFormContent').innerHTML='<div class="card"><p class="hint">Error loading submission.</p></div>';
+  }
 }
 
 /* ============================================================
@@ -4801,6 +4873,18 @@ function soPhotoChanged(id, input){
   soPhotos[id]=input.files[0]||null;
   document.getElementById(id+'_name').textContent=soPhotos[id]?soPhotos[id].name:'';
 }
+function soMultiFileInput(id, accept, text){
+  return `<div style="margin-top:8px">
+    <button type="button" onclick="document.getElementById('${id}_file').click()" style="padding:10px 16px;border:1px dashed var(--line);border-radius:10px;background:#f9f9f9;cursor:pointer;font-size:13px;width:100%;text-align:left">📎 ${text||'Choose Files / Take Photos'}</button>
+    <input id="${id}_file" type="file" accept="${accept||'image/*'}" multiple style="display:none" onchange="soMultiFileChanged('${id}',this)">
+    <div id="${id}_name" style="font-size:12px;color:var(--muted);margin-top:4px;min-height:16px"></div>
+  </div>`;
+}
+function soMultiFileChanged(id, input){
+  const files=Array.from(input.files);
+  soPhotos[id]=files.length?files:null;
+  document.getElementById(id+'_name').textContent=files.length?`${files.length} file(s) selected`:'';
+}
 
 function soSec(tag, title){
   return `<div class="card" style="margin-top:12px"><div class="sec-title"><span class="tag">${tag}</span> ${title}</div>`;
@@ -4816,19 +4900,6 @@ function soConditional(ifQ, ifVal, inner){
 }
 
 async function initSessionObsForm(){
-  soGradeTeams = null;
-  const key = soState.level+'_'+(soState.sessionIndex+1);
-  const isSchool = soState.role==='school';
-  if(isSchool && SO_TEACHER_UPLOADS[key]){
-    const s=getSession(), url=getCfg().url;
-    if(s&&url){
-      try{
-        const r=await fetch(url+'?action=getGradeTeams&schoolCode='+encodeURIComponent(soState.schoolCode)+'&grade='+encodeURIComponent(soState.grade)+'&token='+encodeURIComponent(s.token));
-        const j=await r.json();
-        if(j.status==='ok') soGradeTeams={teams:j.teams||[], state:j.state||'not_extracted'};
-      }catch(e){ soGradeTeams={teams:[], state:'not_extracted'}; }
-    }
-  }
   renderSessionObsForm();
 }
 
@@ -4895,36 +4966,19 @@ function renderSessionObsForm(){
   // S4: Outcomes (common)
   html+=soSec('4','Outcomes');
   html+=soLabel('Q14','Please upload photos or videos of students working from today\'s session.',true,'',false);
-  html+=soPhotoInput('so_q14','image/*,video/*','Upload session photo / video');
+  html+=soMultiFileInput('so_q14','image/*,video/*','Upload session photos / videos');
   html+=soLabel('Q15','Optional — any suggestions, standout moments, or anything else to share?',false,'',true);
   html+=`<textarea id="${soQ('q15')}" rows="3" style="margin-top:8px" oninput="soSet('q15',this.value)" placeholder="• Any suggestions to improve the activity, session, video, timing, or materials?&#10;• Did any student or SL do something that stood out?&#10;• Anything else you'd like to tell us?"></textarea>`;
   html+='</div>';
 
-  // S5: Teacher workbook photos (school role only)
-  if(isSchool && SO_TEACHER_UPLOADS[key]){
+  // S5: Workbook photos (all roles)
+  if(SO_TEACHER_UPLOADS[key]){
     html+=soSec('5','Workbook Photos');
     html+=`<p class="hint" style="margin:0 0 8px">Q16 — Please upload photos of the students' workbook pages listed below. These match today's session.</p>`;
-    const teamsState = soGradeTeams ? soGradeTeams.state : null;
-    if(teamsState==='no_form3'){
-      html+=`<div style="padding:16px;background:#FEF2F2;border-radius:10px;color:var(--err);font-weight:600">No team data found for Grade ${soState.grade}. Please submit Form 3 for this grade first, then come back to fill this form.</div>`;
-    } else if(teamsState==='not_extracted'){
-      html+=`<div style="padding:16px;background:#FEF9C3;border-radius:10px;color:#92400E;font-weight:600">Team data for Grade ${soState.grade} is not yet processed. Please wait and try again later.</div>`;
-    } else {
-      const teams = (soGradeTeams && soGradeTeams.teams) || [];
-      SO_TEACHER_UPLOADS[key].forEach((up,i)=>{
-        html+=soLabel('Q16.'+(i+1), up.text, true, '', false);
-        if(teams.length>0){
-          teams.forEach((team,ti)=>{
-            const inputId='so_q16_'+(i+1)+'_'+team.teamCode;
-            const label='Team '+(ti+1)+' ('+team.teamCode+(team.section?' · '+team.section:'')+')';
-            html+=`<div style="font-size:13px;font-weight:600;color:var(--navy);margin:8px 0 2px">${label}</div>`;
-            html+=soPhotoInput(inputId, up.accept, 'Upload photo for '+team.teamCode);
-          });
-        } else {
-          html+=soPhotoInput('so_q16_'+(i+1), up.accept, 'Choose file or take photo');
-        }
-      });
-    }
+    SO_TEACHER_UPLOADS[key].forEach((up,i)=>{
+      html+=soLabel('Q16.'+(i+1), up.text, true, '', false);
+      html+=soMultiFileInput('so_q16_'+(i+1), up.accept, 'Choose files or take photos');
+    });
     html+='</div>';
   }
 
@@ -4969,9 +5023,9 @@ function renderSessionObsForm(){
     for(let act=1;act<=5;act++){
       if(naList.includes(act)) continue;
       const actExtras=extras[act]||[];
-      const actKey=lvl+'_'+sess+'_activity'+act;
+      const actName=SO_ACTIVITY_NAMES[lvl+'_'+sess+'_'+act]||'';
       html+=`<div style="border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px">
-        <div style="font-weight:700;font-size:14px;color:var(--primary,#0D3B4A);margin-bottom:10px">Activity ${act} <span style="font-size:11px;color:var(--muted);font-weight:400">(${actKey})</span></div>`;
+        <div style="font-weight:700;font-size:14px;color:var(--primary,#0D3B4A);margin-bottom:10px">Activity ${act}${actName?' <span style="font-size:11px;color:var(--muted);font-weight:400">('+actName+')</span>':''}</div>`;
       html+=soLabel('AQ1','Overall, how did this activity go?',true,'',false);
       html+=soScale('act'+act+'_q1',5,['Students struggled a lot — could not really do it','Completed but needed a lot of help','Adequate, went okay','Good, went well with minor issues','Excellent, went very well'],false);
       html+=soLabel('AQ2','Any suggestions or feedback on this activity?',true,'Write about time, student engagement, clarity, skills, or teamwork.',false);
@@ -4984,7 +5038,7 @@ function renderSessionObsForm(){
         else if(eq.type==='scale4'){ html+=soScale(eKey,4,eq.labels,eq.required); }
         else if(eq.type==='dropdown'){ html+=soDropdown(eKey,eq.opts); }
         else if(eq.type==='textarea'){ html+=`<textarea id="${soQ(eKey)}" rows="2" style="margin-top:8px" oninput="soSet('${eKey}',this.value)"></textarea>`; }
-        else if(eq.type==='photo'){ html+=soPhotoInput('so_'+eKey,'image/*',eq.text); }
+        else if(eq.type==='photo'){ html+=soMultiFileInput('so_'+eKey,'image/*',eq.text); }
       });
       html+='</div>';
     }
@@ -5019,6 +5073,13 @@ function renderSessionObsForm(){
 /* ============================================================
    SESSION OBS — SUBMISSION
    ============================================================ */
+function soOtherFilled(key){
+  const val=soAnswers[key];
+  const arr=Array.isArray(val)?val:[val];
+  if(!arr.includes('Other')) return true;
+  const inp=document.getElementById('so_'+key+'_other');
+  return !!(inp&&inp.value.trim());
+}
 async function submitSessionObs(){
   const s=getSession(); const url=getCfg().url;
   if(!s||!url){ toast('Backend not configured.'); return; }
@@ -5028,27 +5089,34 @@ async function submitSessionObs(){
   // Mandatory field validation
   if(!soAnswers['q1']){ toast('Attendance: Please answer Q1 — were all SLs present today?'); return; }
   if(soAnswers['q1']==='No' && !soAnswers['q2']){ toast('Attendance: Please answer Q2 — what happened because an SL was absent?'); return; }
+  if(soAnswers['q1']==='No' && !soOtherFilled('q2')){ toast('Attendance: Please specify what happened (Q2 "Other").'); return; }
   if(!soAnswers['q3']){ toast('Attendance: Please answer Q3 — what did the Support SL do today?'); return; }
+  if(soAnswers['q3']==='5'){ toast('Attendance: Please describe what the Support SL did (Q3 "Something else").'); return; }
   if(!soAnswers['q4']){ toast('Attendance: Please answer Q4 — how much did the teacher step in?'); return; }
   if(!soAnswers['q5']){ toast('Video: Please answer Q5 — were videos played today?'); return; }
   if(soAnswers['q5']==='No' && !soAnswers['q6']){ toast('Video: Please answer Q6 — why was no video played today?'); return; }
+  if(soAnswers['q5']==='No' && !soOtherFilled('q6')){ toast('Video: Please specify why the video wasn\'t played (Q6 "Other").'); return; }
   if(soAnswers['q5']==='Yes'){
     if(!soAnswers['q7']){ toast('Video: Please answer Q7 — how was the video played?'); return; }
+    if(!soOtherFilled('q7')){ toast('Video: Please specify how the video was played (Q7 "Other").'); return; }
     if(!(soAnswers['q8']&&soAnswers['q8'].length)){ toast('Video: Please answer Q8 — who played the video?'); return; }
+    if(!soOtherFilled('q8')){ toast('Video: Please specify who played the video (Q8 "Other").'); return; }
     if(!soAnswers['q9']){ toast('Video: Please answer Q9 — could students follow the video?'); return; }
   }
   if(!soAnswers['q10']){ toast('Timing: Please answer Q10 — how was the session timing?'); return; }
   if(!soAnswers['q11']||!soAnswers['q11'].trim()){ toast('Timing: Please answer Q11 — which activity needed the most help?'); return; }
   if(!(soAnswers['q12']&&soAnswers['q12'].length)){ toast('Timing: Please answer Q12 — what did you use to keep time?'); return; }
+  if(!soOtherFilled('q12')){ toast('Timing: Please specify what you used to keep time (Q12 "Other").'); return; }
   if(!(soAnswers['q13']&&soAnswers['q13'].length)){ toast('Timing: Please answer Q13 — who was in charge of keeping time?'); return; }
+  if(!soOtherFilled('q13')){ toast('Timing: Please specify who was in charge of keeping time (Q13 "Other").'); return; }
   if(!soPhotos['so_q14']){ toast('Outcomes: Please upload at least one photo or video (Q14).'); return; }
   const isSchool=(soState.role==='school');
   const key16=soState.level+'_'+(soState.sessionIndex+1);
-  if(isSchool && SO_TEACHER_UPLOADS[key16] && soGradeTeams && soGradeTeams.state==='ok'){
-    const missingTeams=soGradeTeams.teams.filter(team=>
-      SO_TEACHER_UPLOADS[key16].some((_,i)=>!soPhotos['so_q16_'+(i+1)+'_'+team.teamCode])
-    );
-    if(missingTeams.length){ toast('Workbook Photos: Please upload photos for all teams (Q16).'); return; }
+  if(SO_TEACHER_UPLOADS[key16]){
+    for(let i=0;i<SO_TEACHER_UPLOADS[key16].length;i++){
+      const files=soPhotos['so_q16_'+(i+1)];
+      if(!files||!files.length){ toast('Workbook Photos: Please upload at least one photo for Q16.'+(i+1)+'.'); return; }
+    }
   }
   if(isIIF){
     const missingSQ=['sq1','sq2','sq3','sq4'].filter(k=>!soAnswers[k]);
@@ -5061,12 +5129,24 @@ async function submitSessionObs(){
       if(naListV.includes(actV)) continue;
       if(!soAnswers['act'+actV+'_q1']){ toast('Activity '+actV+': Please rate how the activity went (AQ1).'); return; }
       if(!soAnswers['act'+actV+'_q2']||!soAnswers['act'+actV+'_q2'].trim()){ toast('Activity '+actV+': Please share feedback on the activity (AQ2).'); return; }
+      const actExtrasV=((SO_ACTIVITY_EXTRAS[lvlV+'_'+sessV]||{})[actV])||[];
+      for(const eq of actExtrasV){
+        if(!eq.required) continue;
+        const eKey='act'+actV+'_'+eq.id;
+        if(eq.type==='photo'){
+          if(!soPhotos['so_'+eKey]){ toast('Activity '+actV+' '+eq.id.toUpperCase()+': Please upload the required photo.'); return; }
+        } else {
+          const val=soAnswers[eKey];
+          if(!val||(typeof val==='string'&&!val.trim())){ toast('Activity '+actV+' '+eq.id.toUpperCase()+': Please answer — '+eq.text.substring(0,60)+'…'); return; }
+        }
+      }
     }
     if(sessV>=2){
       if(!soAnswers['sq5']){ toast('Session Questions: Please answer SQ5 — how well did students understand the focus skill?'); return; }
       if(!soAnswers['sq6']||!soAnswers['sq6'].trim()){ toast('Session Questions: Please fill SQ6 — describe what you saw.'); return; }
     }
     if(!soAnswers['q18']){ toast('Student Leaders: Please answer Q18 — which language did SLs use?'); return; }
+    if(!soOtherFilled('q18')){ toast('Student Leaders: Please specify the language used (Q18 "Other").'); return; }
     if(!soAnswers['q19']){ toast('Student Leaders: Please answer Q19 — how clearly did SLs explain?'); return; }
     if(!soAnswers['q20']){ toast('Student Leaders: Please answer Q20 — did SLs use the MMS kit?'); return; }
     if(soAnswers['q20']==='No' && !soAnswers['q20_feedback']){ toast('Student Leaders: Please explain why the MMS kit was not used.'); return; }
@@ -5084,24 +5164,29 @@ async function submitSessionObs(){
       if(!f) return null;
       return new Promise(res=>{ const r=new FileReader(); r.onload=()=>res({name:f.name,mime:f.type||'image/jpeg',data:String(r.result).split(',')[1]}); r.onerror=()=>res(null); r.readAsDataURL(f); });
     }
-
-    const q14Photo=await readFile('so_q14');
-
-    // Collect per-team Q16 photos
-    const q16TeamPhotos=[];
-    if(SO_TEACHER_UPLOADS[key16]){
-      const teamsList=(soGradeTeams&&soGradeTeams.teams&&soGradeTeams.teams.length)?soGradeTeams.teams:[null];
-      SO_TEACHER_UPLOADS[key16].forEach((up,i)=>{
-        const fileTag=up.fileTag||('Q16_'+(i+1));
-        teamsList.forEach(team=>{
-          const teamCode=team?team.teamCode:null;
-          const inputId=teamCode?'so_q16_'+(i+1)+'_'+teamCode:'so_q16_'+(i+1);
-          q16TeamPhotos.push({teamCode:teamCode||'TEAM',fileTag,inputId});
-        });
-      });
+    async function readMultiFiles(id){
+      const files=soPhotos[id];
+      if(!files||!files.length) return [];
+      return Promise.all(files.map(f=>new Promise(res=>{
+        const r=new FileReader();
+        r.onload=()=>res({name:f.name,mime:f.type||'image/jpeg',data:String(r.result).split(',')[1]});
+        r.onerror=()=>res(null);
+        r.readAsDataURL(f);
+      })));
     }
-    const q16Reads=await Promise.all(q16TeamPhotos.map(tp=>readFile(tp.inputId)));
-    const q16Teams=q16TeamPhotos.map((tp,idx)=>({teamCode:tp.teamCode,fileTag:tp.fileTag,photo:q16Reads[idx]})).filter(x=>x.photo);
+
+    const q14Photos=await readMultiFiles('so_q14');
+
+    // Collect Q16 workbook photos (multi-file per upload slot)
+    const q16Files=[];
+    if(SO_TEACHER_UPLOADS[key16]){
+      for(let i=0;i<SO_TEACHER_UPLOADS[key16].length;i++){
+        const up=SO_TEACHER_UPLOADS[key16][i];
+        const fileTag=up.fileTag||('Q16_'+(i+1));
+        const photos=await readMultiFiles('so_q16_'+(i+1));
+        photos.filter(Boolean).forEach(photo=>q16Files.push({fileTag,photo}));
+      }
+    }
 
     const activities={};
     for(let act=1;act<=5;act++){
@@ -5111,8 +5196,9 @@ async function submitSessionObs(){
       const actData={q1:soAnswers['act'+act+'_q1']||'',q2:soAnswers['act'+act+'_q2']||''};
       for(const eq of actExtras){
         const eKey='act'+act+'_'+eq.id;
-        if(eq.type==='photo'){ actData[eq.id+'Photo']=await readFile('so_'+eKey); }
-        else { actData[eq.id]=soAnswers[eKey]||''; }
+        const qNum=eq.id.slice(1); // 'aq3'→'q3', 'aq4'→'q4'
+        if(eq.type==='photo'){ actData[qNum+'Photos']=await readMultiFiles('so_'+eKey); }
+        else { actData[qNum]=soAnswers[eKey]||''; }
       }
       activities[String(act)]=actData;
     }
@@ -5134,9 +5220,9 @@ async function submitSessionObs(){
         q1:soAnswers.q1||'', q2:soAnswers.q2||'', q3:soAnswers.q3||'', q4:soAnswers.q4||'',
         q5:soAnswers.q5||'', q6:soAnswers.q6||'', q7:soAnswers.q7||'', q8:soAnswers.q8||[], q9:soAnswers.q9||'',
         q10:soAnswers.q10||'', q11:soAnswers.q11||'', q12:soAnswers.q12||[], q13:soAnswers.q13||'',
-        q14Photo, q15:soAnswers.q15||''
+        q14Photos, q15:soAnswers.q15||''
       },
-      teacher:{ q16Teams },
+      teacher:{ q16Files },
       iif:{
         q17a:soAnswers.q17a||'', q17b:soAnswers.q17b||'',
         sessionQs:{ sq1:soAnswers.sq1||'', sq2:soAnswers.sq2||'', sq3:soAnswers.sq3||'', sq4:soAnswers.sq4||'', sq5:soAnswers.sq5||'', sq6:soAnswers.q_sq6||soAnswers.sq6||'' },
@@ -5150,6 +5236,14 @@ async function submitSessionObs(){
     const r=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload)});
     const j=await r.json();
     if(j.status==='success'){
+      const submittedSess=soState.sessionIndex+1;
+      if(isIIF){
+        soState.iifSubmittedSessions=soState.iifSubmittedSessions||[];
+        if(!soState.iifSubmittedSessions.includes(submittedSess)) soState.iifSubmittedSessions.push(submittedSess);
+      } else {
+        soState.submittedSessions=soState.submittedSessions||[];
+        if(!soState.submittedSessions.includes(submittedSess)) soState.submittedSessions.push(submittedSess);
+      }
       toast('Observation submitted successfully ✓');
       showScreen('sessionObsSessions');
     } else {
@@ -5160,7 +5254,12 @@ async function submitSessionObs(){
 }
 
 /* ---------- boot ---------- */
-if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+  navigator.serviceWorker.addEventListener('message', (e) => {
+    if(e.data && e.data.type === 'SW_UPDATED') location.reload();
+  });
+}
 const _sess = getSession();
 if(_sess && _sess.token){
   bootAfterLogin();

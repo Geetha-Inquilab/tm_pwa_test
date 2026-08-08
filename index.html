@@ -847,7 +847,7 @@
   </div>
   <div id="buddyResults" style="display:none">
     <div class="card">
-      <div class="sec-title"><span class="tag">Feedback</span> Mentor Feedback</div>
+      <div class="sec-title"><span class="tag">Feedback</span> Feedback Questions</div>
       <div id="buddyFeedbackText" class="buddy-feedback"></div>
     </div>
     <button class="buddy-btn buddy-btn-success" onclick="downloadBuddyPDF()">Download PDF Report</button>
@@ -3252,79 +3252,182 @@ function renderBuddyFeedback(text){
   $('buddyFeedbackText').textContent=text;
 }
 
+// -------- INQUI BUDDY — PDF HELPERS --------
+
+function extractBuddyQuestions(feedbackText){
+  // New bilingual format: ENGLISH: ... TELUGU: ...
+  const engIdx=feedbackText.indexOf('ENGLISH:');
+  if(engIdx!==-1){
+    const telIdx=feedbackText.indexOf('TELUGU:',engIdx);
+    const engContent=telIdx!==-1?feedbackText.slice(engIdx+8,telIdx):feedbackText.slice(engIdx+8);
+    const qs=engContent.trim().split('\n').filter(l=>l.trim().startsWith('-')).map(l=>l.replace(/^-\s*/,'').trim()).filter(Boolean);
+    if(qs.length) return qs;
+  }
+  // Old 4-section format: extract THINGS TO THINK MORE ABOUT section
+  const sectionMatch=feedbackText.match(/THINGS TO THINK MORE ABOUT:\s*([\s\S]*?)(?:\n\n[A-Z]|$)/);
+  if(sectionMatch){
+    return sectionMatch[1].trim().split('\n').filter(l=>l.trim().startsWith('-')).map(l=>l.replace(/^-\s*/,'').trim()).filter(Boolean);
+  }
+  // English-only bullet format
+  return feedbackText.trim().split('\n').filter(l=>l.trim().startsWith('-')).map(l=>l.replace(/^-\s*/,'').trim()).filter(Boolean);
+}
+
+function extractTeluguQuestions(feedbackText){
+  const idx=feedbackText.indexOf('TELUGU:');
+  if(idx===-1) return [];
+  return feedbackText.slice(idx+7).trim().split('\n').filter(l=>l.trim().startsWith('-')).map(l=>l.replace(/^-\s*/,'').trim()).filter(Boolean);
+}
+
+async function loadTeluguFont(){
+  const FONT_NAME='Noto Sans Telugu';
+  if(document.fonts.check('12px "'+FONT_NAME+'"')) return true;
+  const FONT_URLS=[
+    'https://cdn.jsdelivr.net/gh/googlefonts/noto-fonts@main/hinted/ttf/NotoSansTelugu/NotoSansTelugu-Regular.ttf',
+    'https://fonts.gstatic.com/s/notosanstelugu/v31/0nksC9P7MfYHj2oFtYm2ChTjgPvNiA.ttf'
+  ];
+  for(const url of FONT_URLS){
+    try{
+      const face=new FontFace(FONT_NAME,'url('+url+')');
+      const loaded=await face.load();
+      document.fonts.add(loaded);
+      await document.fonts.ready;
+      return true;
+    }catch(e){ continue; }
+  }
+  return false;
+}
+
+function renderTeluguCell(text, colWidthMm, lineHmm){
+  const pxPerMm=96/25.4, fontPx=11, scale=2;
+  const maxWpx=colWidthMm*pxPerMm;
+  const lineHpx=fontPx*1.6;
+  const tmp=document.createElement('canvas').getContext('2d');
+  tmp.font=fontPx+'px "Noto Sans Telugu"';
+  const words=text.split(' ');
+  const lines=[]; let cur='';
+  for(const w of words){
+    const t=cur?cur+' '+w:w;
+    if(tmp.measureText(t).width<=maxWpx) cur=t;
+    else{ if(cur)lines.push(cur); cur=w; }
+  }
+  if(cur) lines.push(cur);
+  if(!lines.length) lines.push(text);
+  const canvas=document.createElement('canvas');
+  canvas.width=Math.ceil(maxWpx*scale); canvas.height=Math.ceil(lines.length*lineHpx*scale);
+  const ctx=canvas.getContext('2d');
+  ctx.scale(scale,scale);
+  ctx.font=fontPx+'px "Noto Sans Telugu"';
+  ctx.fillStyle='#282828';
+  lines.forEach((ln,i)=>ctx.fillText(ln,0,(i+1)*lineHpx-fontPx*0.25));
+  return { dataUri:canvas.toDataURL('image/png'), heightMm:lines.length*lineHpx/pxPerMm, lineCount:lines.length };
+}
+
+async function buddyPDFDrawTable(doc, engQs, telQs, teluguAvailable, tableY){
+  const ml=12, colW=88, gap=10, rowPad=3, lineH=5.2, fs=8.5;
+  const telX=ml+colW+gap;
+  // Table header
+  doc.setFillColor(13,59,74);
+  doc.rect(ml,tableY,colW,8,'F'); doc.rect(telX,tableY,colW,8,'F');
+  doc.setFont('helvetica','bold'); doc.setFontSize(fs); doc.setTextColor(255,255,255);
+  doc.text('English',ml+3,tableY+5.5); doc.text('Telugu',telX+3,tableY+5.5);
+  let y=tableY+8;
+
+  for(let i=0;i<engQs.length;i++){
+    const engText=(i+1)+'. '+engQs[i];
+    const telText=(i+1)+'. '+(telQs[i]||'');
+    const engLines=doc.setFont('helvetica','normal').setFontSize(fs).splitTextToSize(engText,colW-6);
+    // Render Telugu cell as canvas PNG (browser handles complex shaping natively)
+    let telImg=null;
+    if(teluguAvailable && telQs[i]){
+      try{ telImg=renderTeluguCell(telText,colW-7,lineH); }catch(e){}
+    }
+    const telLineCount=telImg?telImg.lineCount:engLines.length;
+    const rowH=Math.max(engLines.length,telLineCount)*lineH+rowPad*2;
+    // Row background (alternating)
+    if(i%2===0){ doc.setFillColor(245,248,250); doc.rect(ml,y,colW,rowH,'F'); doc.rect(telX,y,colW,rowH,'F'); }
+    // Border lines
+    doc.setDrawColor(200,210,215); doc.rect(ml,y,colW,rowH); doc.rect(telX,y,colW,rowH);
+    // English text
+    doc.setFont('helvetica','normal'); doc.setFontSize(fs); doc.setTextColor(40,40,40);
+    doc.text(engLines,ml+3,y+rowPad+lineH*0.8);
+    // Telugu image
+    if(telImg){
+      try{ doc.addImage(telImg.dataUri,'PNG',telX+2,y+rowPad,colW-5,Math.min(telImg.heightMm,rowH-rowPad)); }catch(e){}
+    }
+    y+=rowH;
+  }
+  return y;
+}
+
 async function downloadBuddyPDF(){
   if(!buddyState.feedback){ toast('No evaluation results to download.'); return; }
+  const engQs=extractBuddyQuestions(buddyState.feedback);
+  if(!engQs.length){ toast('No feedback questions found.'); return; }
+  const telQs=extractTeluguQuestions(buddyState.feedback);
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-  const ml=18, mr=18, mt=22, cw=210-ml-mr;
-  let y=mt;
+  const teluguLoaded=await loadTeluguFont();
 
-  function newPage(){ doc.addPage(); y=mt; }
-  function maybeNewPage(needed){ if(y+needed>277){ newPage(); } }
+  const ml=12, pageW=210, pageH=297;
+  const colW=88, imgX=106, imgW=92, topH=78, topY=32;
 
-  // Page 1 — Header band
-  doc.setFillColor(13,59,74);
-  doc.rect(0,0,210,28,'F');
+  // Header band
+  doc.setFillColor(13,59,74); doc.rect(0,0,pageW,28,'F');
   doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(255,255,255);
   doc.text('Think And Make 2026-27 — Evaluation Report',ml,12);
-  doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(0,191,255);
+  doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(0,191,255);
   doc.text('Inqui-Lab Foundation  |  Inqui Buddy  |  '+new Date().toLocaleDateString('en-IN'),ml,21);
 
-  y=36;
-  // Team details section
-  doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(13,59,74);
-  doc.text('Team Details',ml,y); y+=5;
-  doc.setDrawColor(0,191,255); doc.line(ml,y,210-mr,y); y+=5;
-
+  // Team Details (left column)
+  doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(13,59,74);
+  doc.text('Team Details',ml,topY+1);
+  doc.setDrawColor(0,191,255); doc.line(ml,topY+4,ml+colW,topY+4);
   const details=[
-    ['School',buddyState.school],['Partner',buddyState.partner],
-    ['Grade & Section','Grade '+buddyState.grade+', Section '+buddyState.section],
-    ['Student Leader (SL)',buddyState.slName],['Cluster ID',String(buddyState.clusterId)],
-    ['Team ID',String(buddyState.teamId)],
-    ['Students',buddyState.teamStudents.join(', ')||'—'],
+    ['School',buddyState.school||'—'],
+    ['Partner',buddyState.partner||'—'],
+    ['Grade & Section','Grade '+buddyState.grade+', Sec '+buddyState.section],
+    ['Student Leader',buddyState.slName||'—'],
+    ['Cluster ID',String(buddyState.clusterId||'—')],
+    ['Team ID',String(buddyState.teamId||'—')],
+    ['Students',(buddyState.teamStudents||[]).join(', ')||'—'],
     ['Evaluated On',new Date().toLocaleDateString('en-IN')]
   ];
-  doc.setFontSize(9.5);
+  let dy=topY+9;
+  doc.setFontSize(8);
   details.forEach(([lbl,val])=>{
-    maybeNewPage(10);
-    doc.setFont('helvetica','bold'); doc.setTextColor(13,59,74); doc.text(lbl+':',ml,y);
+    if(dy>topY+topH-4) return;
+    doc.setFont('helvetica','bold'); doc.setTextColor(13,59,74); doc.text(lbl+':',ml,dy);
     doc.setFont('helvetica','normal'); doc.setTextColor(51,51,51);
-    const vLines=doc.splitTextToSize(val,130); doc.text(vLines,68,y);
-    y+=Math.max(vLines.length*5.5,7);
+    const vLines=doc.splitTextToSize(String(val),colW-28);
+    doc.text(vLines,ml+28,dy);
+    dy+=Math.max(vLines.length*4.8,6);
   });
 
-  y+=4; maybeNewPage(30);
-  // Innovation idea image
-  doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(13,59,74);
-  doc.text('Innovation Idea Submission',ml,y); y+=5;
-  doc.setDrawColor(0,191,255); doc.line(ml,y,210-mr,y); y+=5;
+  // Idea Image (right column)
+  doc.setDrawColor(200,210,215); doc.rect(imgX,topY,imgW,topH);
   const imgEl=$('buddyPreview');
   if(imgEl&&imgEl.src&&imgEl.src.startsWith('data:')){
-    try{
-      const availH=Math.min(110,277-y-10);
-      doc.addImage(imgEl.src,'JPEG',ml,y,cw,availH,'','FAST');
-      y+=availH+6;
-    }catch(e){}
+    try{ doc.addImage(imgEl.src,'JPEG',imgX,topY,imgW,topH,'','FAST'); }catch(e){}
+  } else {
+    doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(170,170,170);
+    doc.text('Idea image',imgX+imgW/2,topY+topH/2,{align:'center'});
   }
 
-  // Feedback
-  newPage();
-  doc.setFillColor(13,59,74); doc.rect(0,0,210,22,'F');
-  doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(255,255,255);
-  doc.text('Mentor Feedback',ml,14);
-  y=30;
-  if(buddyState.feedback){
-    doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(51,51,51);
-    const fbLines=doc.splitTextToSize(buddyState.feedback,cw);
-    fbLines.forEach(line=>{ maybeNewPage(6); doc.text(line,ml,y); y+=5.5; });
-  }
+  // Divider
+  const divY=topY+topH+4;
+  doc.setDrawColor(0,191,255); doc.line(ml,divY,pageW-ml,divY);
 
-  // Footer on every page
-  const totalPages=doc.getNumberOfPages();
-  for(let i=1;i<=totalPages;i++){
-    doc.setPage(i); doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(170,170,170);
-    doc.text('Page '+i+' of '+totalPages+'   |   Inqui Buddy   |   Inqui-Lab Foundation   |   Think & Make 2026-27',ml,289);
-  }
+  // "Feedback Questions" heading
+  const headY=divY+7;
+  doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(13,59,74);
+  doc.text('Feedback Questions',pageW/2,headY,{align:'center'});
+
+  // Questions table
+  await buddyPDFDrawTable(doc,engQs,telQs,teluguLoaded,headY+5);
+
+  // Footer
+  doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(170,170,170);
+  doc.text('Page 1 of 1   |   Inqui Buddy   |   Inqui-Lab Foundation   |   Think & Make 2026-27',ml,290);
 
   const fname='InquiBuddy_'+escHtml(buddyState.schoolCode)+'_Team'+escHtml(String(buddyState.teamId))+'_'+new Date().toISOString().slice(0,10)+'.pdf';
   doc.save(fname);
@@ -4152,47 +4255,59 @@ function sbWrapText(doc, text, x, y, maxW, lineH, pageH, marginB, onNewPage){
 }
 
 async function sbDownloadTeamPDF(teamCode){
-  const team = schoolBuddyState.teams.find(t=>t.teamCode===teamCode);
+  const team=schoolBuddyState.teams.find(t=>t.teamCode===teamCode);
   if(!team){ toast('Team not found.'); return; }
   if(!team.feedbackText){ toast('No feedback generated yet for Team '+teamCode+'.'); return; }
+  try {
+  const engQs=extractBuddyQuestions(team.feedbackText);
+  if(!engQs.length){ toast('No feedback questions found for Team '+teamCode+'.'); return; }
+  const telQs=extractTeluguQuestions(team.feedbackText);
 
-  const {jsPDF} = window.jspdf;
-  const doc = new jsPDF({unit:'mm',format:'a4'});
-  const pageW = doc.internal.pageSize.getWidth();
-  const pageH = doc.internal.pageSize.getHeight();
-  const margin = 12;
-  let y = sbBuddyPDFHeader(doc, pageW);
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({unit:'mm',format:'a4'});
+  const teluguLoaded=await loadTeluguFont();
 
-  // --- Page 1: Team Details ---
-  doc.setFontSize(13); doc.setTextColor(13,59,74); doc.setFont(undefined,'bold');
-  doc.text('Team Details',margin,y); y+=8;
-  doc.setFontSize(10); doc.setFont(undefined,'normal'); doc.setTextColor(40,40,40);
+  const ml=12, pageW=210, pageH=297;
+  const colW=88, imgX=106, imgW=92, topH=78, topY=32;
+
+  // Header band
+  doc.setFillColor(13,59,74); doc.rect(0,0,pageW,28,'F');
+  doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(255,255,255);
+  doc.text('Think And Make 2026-27 — Evaluation Report',ml,12);
+  doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(0,191,255);
+  doc.text('Inqui-Lab Foundation  |  Inqui Buddy  |  '+new Date().toLocaleDateString('en-IN'),ml,21);
+
+  // Team Details (left column)
+  doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(13,59,74);
+  doc.text('Team Details',ml,topY+1);
+  doc.setDrawColor(0,191,255); doc.line(ml,topY+4,ml+colW,topY+4);
   const details=[
     ['School',schoolBuddyState.school+' ('+schoolBuddyState.schoolCode+')'],
     ['Partner',schoolBuddyState.partner||'—'],
-    ['Grade & Section','Grade '+schoolBuddyState.grade+', Section '+schoolBuddyState.section],
+    ['Grade & Section','Grade '+schoolBuddyState.grade+', Sec '+schoolBuddyState.section],
     ['Team Code',team.teamCode],
     ['SL Name',team.slName||'—'],
     ['Cluster ID',team.clusterId||'—'],
-    ['Students',(team.students||[]).join(', ')||'—'],
+    ['Students',(team.students||[]).join(', ')||'—']
   ];
+  let dy=topY+9;
+  doc.setFontSize(8);
   details.forEach(([lbl,val])=>{
-    doc.setFont(undefined,'bold'); doc.text(lbl+':',margin,y);
-    doc.setFont(undefined,'normal');
-    const lines=doc.splitTextToSize(val,pageW-margin*2-32);
-    lines.forEach((ln,i)=>{ doc.text(ln,margin+32,y+(i*5)); });
-    y+=(lines.length*5)+2;
-    if(y>pageH-20){ doc.addPage(); sbBuddyPDFHeader(doc,pageW); y=36; }
+    if(dy>topY+topH-4) return;
+    doc.setFont('helvetica','bold'); doc.setTextColor(13,59,74); doc.text(lbl+':',ml,dy);
+    doc.setFont('helvetica','normal'); doc.setTextColor(51,51,51);
+    const vLines=doc.splitTextToSize(String(val),colW-28);
+    doc.text(vLines,ml+28,dy);
+    dy+=Math.max(vLines.length*4.8,6);
   });
 
-  // --- Page 2: Idea Photo ---
+  // Idea Image (right column) — build JPEG from local base64 or Drive
+  doc.setDrawColor(200,210,215); doc.rect(imgX,topY,imgW,topH);
   const localArt=schoolBuddyState.localArtifacts[teamCode];
   const photoB64=localArt?.photoBase64||team.photoBase64;
   const photoMime=localArt?.photoMime||team.photoMime||'image/jpeg';
+  let jpegUrl=null;
   if(photoB64){
-    doc.addPage(); sbBuddyPDFHeader(doc,pageW); y=36;
-    doc.setFontSize(13); doc.setTextColor(13,59,74); doc.setFont(undefined,'bold');
-    doc.text('Innovation Idea Submission',margin,y); y+=8;
     try{
       const dataUri='data:'+photoMime+';base64,'+photoB64;
       const tmpImg=new Image();
@@ -4200,104 +4315,168 @@ async function sbDownloadTeamPDF(teamCode){
       const canvas=document.createElement('canvas');
       canvas.width=tmpImg.naturalWidth||800; canvas.height=tmpImg.naturalHeight||600;
       canvas.getContext('2d').drawImage(tmpImg,0,0);
-      const jpegUrl=canvas.toDataURL('image/jpeg',0.85);
-      const imgW=pageW-margin*2;
-      const imgH=Math.min((canvas.height/canvas.width)*imgW,pageH-y-20);
-      doc.addImage(jpegUrl,'JPEG',margin,y,imgW,imgH);
-    }catch(e){ doc.setFontSize(10); doc.setFont(undefined,'normal'); doc.setTextColor(130,130,130); doc.text('(Image not available for PDF)',margin,y+10); }
-  } else if(team.photoUrl && team.photoUrl.startsWith('http')){
-    doc.addPage(); sbBuddyPDFHeader(doc,pageW); y=36;
-    doc.setFontSize(13); doc.setTextColor(13,59,74); doc.setFont(undefined,'bold');
-    doc.text('Innovation Idea Submission',margin,y); y+=8;
+      jpegUrl=canvas.toDataURL('image/jpeg',0.85);
+    }catch(e){}
+  } else if(team.photoUrl&&team.photoUrl.startsWith('http')){
     try{
       const s=getSession(), cfgUrl=getCfg().url;
       const r=await fetch(cfgUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
-        body:JSON.stringify({
-          action:'getTeamPhoto', token:s.token,
-          schoolCode:schoolBuddyState.schoolCode, teamCode,
-          grade:schoolBuddyState.grade, partner:schoolBuddyState.partner
-        })});
+        body:JSON.stringify({action:'getTeamPhoto',token:s.token,
+          schoolCode:schoolBuddyState.schoolCode,teamCode,
+          grade:schoolBuddyState.grade,partner:schoolBuddyState.partner})});
       const jr=await r.json();
-      if(jr.status!=='ok'||!jr.base64) throw new Error('no photo');
-      const dataUri='data:'+jr.mime+';base64,'+jr.base64;
-      const tmpImg=new Image();
-      await new Promise(res=>{ tmpImg.onload=res; tmpImg.onerror=res; tmpImg.src=dataUri; });
-      const canvas=document.createElement('canvas');
-      canvas.width=tmpImg.naturalWidth||800; canvas.height=tmpImg.naturalHeight||600;
-      canvas.getContext('2d').drawImage(tmpImg,0,0);
-      const jpegUrl=canvas.toDataURL('image/jpeg',0.85);
-      const imgW=pageW-margin*2;
-      const imgH=Math.min((canvas.height/canvas.width)*imgW,pageH-y-20);
-      doc.addImage(jpegUrl,'JPEG',margin,y,imgW,imgH);
-    }catch(e){
-      doc.setFontSize(10); doc.setFont(undefined,'normal'); doc.setTextColor(40,40,40);
-      doc.text('Idea photo uploaded. View at:',margin,y); y+=6;
-      doc.setTextColor(0,102,204);
-      const urlLines=doc.splitTextToSize(team.photoUrl,pageW-margin*2);
-      urlLines.forEach(ln=>{ doc.text(ln,margin,y); y+=5; });
-    }
+      if(jr.status==='ok'&&jr.base64){
+        const dataUri='data:'+jr.mime+';base64,'+jr.base64;
+        const tmpImg=new Image();
+        await new Promise(res=>{ tmpImg.onload=res; tmpImg.onerror=res; tmpImg.src=dataUri; });
+        const canvas=document.createElement('canvas');
+        canvas.width=tmpImg.naturalWidth||800; canvas.height=tmpImg.naturalHeight||600;
+        canvas.getContext('2d').drawImage(tmpImg,0,0);
+        jpegUrl=canvas.toDataURL('image/jpeg',0.85);
+      }
+    }catch(e){}
+  }
+  if(jpegUrl){
+    try{ doc.addImage(jpegUrl,'JPEG',imgX,topY,imgW,topH,'','FAST'); }catch(e){}
+  } else {
+    doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(170,170,170);
+    doc.text('Idea image',imgX+imgW/2,topY+topH/2,{align:'center'});
   }
 
-  // --- Page 3: Feedback ---
-  doc.addPage(); sbBuddyPDFHeader(doc,pageW); y=36;
-  doc.setFontSize(13); doc.setTextColor(13,59,74); doc.setFont(undefined,'bold');
-  doc.text('Mentor Feedback',margin,y); y+=10;
-  doc.setFontSize(10); doc.setFont(undefined,'normal'); doc.setTextColor(40,40,40);
-  y = sbWrapText(doc, team.feedbackText, margin, y, pageW-margin*2, 5.5, pageH, 20,
-    (d)=>{ sbBuddyPDFHeader(d,pageW); return 36; });
+  // Divider
+  const divY=topY+topH+4;
+  doc.setDrawColor(0,191,255); doc.line(ml,divY,pageW-ml,divY);
 
-  // Footers on all pages
-  const totalPages=doc.getNumberOfPages();
-  for(let p=1;p<=totalPages;p++){ doc.setPage(p); sbBuddyPDFFooter(doc,pageW,pageH,p,totalPages); }
+  // "Feedback Questions" heading
+  const headY=divY+7;
+  doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(13,59,74);
+  doc.text('Feedback Questions',pageW/2,headY,{align:'center'});
+
+  // Questions table
+  await buddyPDFDrawTable(doc,engQs,telQs,teluguLoaded,headY+5);
+
+  // Footer
+  doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(170,170,170);
+  doc.text('Page 1 of 1   |   Inqui Buddy   |   Inqui-Lab Foundation   |   Think & Make 2026-27',ml,290);
 
   const date=new Date().toISOString().slice(0,10).replace(/-/g,'');
   doc.save('InquiBuddy_'+schoolBuddyState.schoolCode+'_Team'+teamCode+'_'+date+'.pdf');
+  } catch(e){
+    console.error('sbDownloadTeamPDF error:',e);
+    toast('PDF generation failed: '+(e.message||e));
+  }
 }
 
 async function sbDownloadAllPDF(){
-  const evaluated=schoolBuddyState.teams.filter(t=>t.evalCount>0);
-  if(!evaluated.length){ toast('No evaluations generated yet.'); return; }
+  const teams=schoolBuddyState.teams.filter(t=>t.feedbackText&&extractBuddyQuestions(t.feedbackText).length);
+  if(!teams.length){ toast('No feedback generated yet.'); return; }
 
-  const {jsPDF} = window.jspdf;
-  const doc = new jsPDF({unit:'mm',format:'a4'});
-  const pageW=doc.internal.pageSize.getWidth();
-  const pageH=doc.internal.pageSize.getHeight();
-  const margin=12;
-  let firstPage=true;
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({unit:'mm',format:'a4'});
+  const teluguLoaded=await loadTeluguFont();
 
-  // Cover page
-  sbBuddyPDFHeader(doc,pageW);
-  let y=40;
-  doc.setFontSize(14); doc.setTextColor(13,59,74); doc.setFont(undefined,'bold');
-  doc.text('All Teams Feedback Report',margin,y); y+=8;
-  doc.setFontSize(10); doc.setFont(undefined,'normal'); doc.setTextColor(40,40,40);
-  doc.text('School: '+schoolBuddyState.school+' ('+schoolBuddyState.schoolCode+')', margin,y); y+=6;
-  doc.text('Grade '+schoolBuddyState.grade+', Section '+schoolBuddyState.section, margin,y); y+=6;
-  doc.text('Generated: '+new Date().toLocaleString(), margin,y); y+=6;
-  doc.text('Total teams: '+schoolBuddyState.teams.length+' | Evaluated: '+evaluated.length, margin,y);
+  const ml=12, pageW=210, pageH=297;
+  const colW=88, imgX=106, imgW=92, topH=78, topY=32;
+  let firstTeam=true;
 
-  // Each team
-  schoolBuddyState.teams.forEach(team=>{
-    doc.addPage(); sbBuddyPDFHeader(doc,pageW); y=36;
-    doc.setFontSize(12); doc.setTextColor(13,59,74); doc.setFont(undefined,'bold');
-    doc.text('Team '+team.teamCode,margin,y); y+=7;
-    doc.setFontSize(10); doc.setFont(undefined,'normal'); doc.setTextColor(40,40,40);
-    doc.text('SL: '+(team.slName||'—')+'  |  Cluster: '+(team.clusterId||'—'),margin,y); y+=5;
-    const stLine=doc.splitTextToSize('Students: '+((team.students||[]).join(', ')||'—'), pageW-margin*2);
-    stLine.forEach(ln=>{ doc.text(ln,margin,y); y+=5; });
-    y+=3;
-    if(!team.feedbackText){
-      doc.setTextColor(130,130,130); doc.setFont(undefined,'italic');
-      doc.text('Yet to submit idea.',margin,y);
-    } else {
-      doc.setFont(undefined,'normal'); doc.setTextColor(40,40,40);
-      y=sbWrapText(doc,team.feedbackText,margin,y,pageW-margin*2,5.5,pageH,20,
-        (d)=>{ sbBuddyPDFHeader(d,pageW); return 36; });
+  for(const team of teams){
+    if(!firstTeam) doc.addPage();
+    firstTeam=false;
+
+    const engQs=extractBuddyQuestions(team.feedbackText);
+    const telQs=extractTeluguQuestions(team.feedbackText);
+
+    // Header band
+    doc.setFillColor(13,59,74); doc.rect(0,0,pageW,28,'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(255,255,255);
+    doc.text('Think And Make 2026-27 — Evaluation Report',ml,12);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(0,191,255);
+    doc.text('Inqui-Lab Foundation  |  Inqui Buddy  |  '+new Date().toLocaleDateString('en-IN'),ml,21);
+
+    // Team Details (left column)
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(13,59,74);
+    doc.text('Team Details',ml,topY+1);
+    doc.setDrawColor(0,191,255); doc.line(ml,topY+4,ml+colW,topY+4);
+    const details=[
+      ['School',schoolBuddyState.school+' ('+schoolBuddyState.schoolCode+')'],
+      ['Partner',schoolBuddyState.partner||'—'],
+      ['Grade & Section','Grade '+schoolBuddyState.grade+', Sec '+schoolBuddyState.section],
+      ['Team Code',team.teamCode],
+      ['SL Name',team.slName||'—'],
+      ['Cluster ID',team.clusterId||'—'],
+      ['Students',(team.students||[]).join(', ')||'—']
+    ];
+    let dy=topY+9; doc.setFontSize(8);
+    details.forEach(([lbl,val])=>{
+      if(dy>topY+topH-4) return;
+      doc.setFont('helvetica','bold'); doc.setTextColor(13,59,74); doc.text(lbl+':',ml,dy);
+      doc.setFont('helvetica','normal'); doc.setTextColor(51,51,51);
+      const vLines=doc.splitTextToSize(String(val),colW-28);
+      doc.text(vLines,ml+28,dy);
+      dy+=Math.max(vLines.length*4.8,6);
+    });
+
+    // Idea Image (right column)
+    doc.setDrawColor(200,210,215); doc.rect(imgX,topY,imgW,topH);
+    const localArt=schoolBuddyState.localArtifacts[team.teamCode];
+    const photoB64=localArt?.photoBase64||team.photoBase64;
+    const photoMime=localArt?.photoMime||team.photoMime||'image/jpeg';
+    let jpegUrl=null;
+    if(photoB64){
+      try{
+        const dataUri='data:'+photoMime+';base64,'+photoB64;
+        const tmpImg=new Image();
+        await new Promise(res=>{ tmpImg.onload=res; tmpImg.onerror=res; tmpImg.src=dataUri; });
+        const canvas=document.createElement('canvas');
+        canvas.width=tmpImg.naturalWidth||800; canvas.height=tmpImg.naturalHeight||600;
+        canvas.getContext('2d').drawImage(tmpImg,0,0);
+        jpegUrl=canvas.toDataURL('image/jpeg',0.85);
+      }catch(e){}
+    } else if(team.photoUrl&&team.photoUrl.startsWith('http')){
+      try{
+        const s=getSession(), cfgUrl=getCfg().url;
+        const r=await fetch(cfgUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+          body:JSON.stringify({action:'getTeamPhoto',token:s.token,
+            schoolCode:schoolBuddyState.schoolCode,teamCode:team.teamCode,
+            grade:schoolBuddyState.grade,partner:schoolBuddyState.partner})});
+        const jr=await r.json();
+        if(jr.status==='ok'&&jr.base64){
+          const dataUri='data:'+jr.mime+';base64,'+jr.base64;
+          const tmpImg=new Image();
+          await new Promise(res=>{ tmpImg.onload=res; tmpImg.onerror=res; tmpImg.src=dataUri; });
+          const canvas=document.createElement('canvas');
+          canvas.width=tmpImg.naturalWidth||800; canvas.height=tmpImg.naturalHeight||600;
+          canvas.getContext('2d').drawImage(tmpImg,0,0);
+          jpegUrl=canvas.toDataURL('image/jpeg',0.85);
+        }
+      }catch(e){}
     }
-  });
+    if(jpegUrl){
+      try{ doc.addImage(jpegUrl,'JPEG',imgX,topY,imgW,topH,'','FAST'); }catch(e){}
+    } else {
+      doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(170,170,170);
+      doc.text('Idea image not available',imgX+imgW/2,topY+topH/2,{align:'center'});
+    }
 
+    // Divider + heading
+    const divY=topY+topH+4;
+    doc.setDrawColor(0,191,255); doc.line(ml,divY,pageW-ml,divY);
+    const headY=divY+7;
+    doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(13,59,74);
+    doc.text('Feedback Questions',pageW/2,headY,{align:'center'});
+
+    // Questions table
+    await buddyPDFDrawTable(doc,engQs,telQs,teluguLoaded,headY+5);
+  }
+
+  // Page numbers
   const totalPages=doc.getNumberOfPages();
-  for(let p=1;p<=totalPages;p++){ doc.setPage(p); sbBuddyPDFFooter(doc,pageW,pageH,p,totalPages); }
+  for(let p=1;p<=totalPages;p++){
+    doc.setPage(p);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(170,170,170);
+    doc.text('Page '+p+' of '+totalPages,pageW-ml,pageH-7,{align:'right'});
+    doc.text('Inqui Buddy  |  Inqui-Lab Foundation  |  Think & Make 2026-27',ml,pageH-7);
+  }
 
   const date=new Date().toISOString().slice(0,10).replace(/-/g,'');
   doc.save('InquiBuddy_'+schoolBuddyState.schoolCode+'_Gr'+schoolBuddyState.grade+schoolBuddyState.section+'_AllTeams_'+date+'.pdf');

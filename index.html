@@ -195,7 +195,6 @@
     </div>
     <div style="display:flex;gap:6px;align-items:center">
       <span id="hdrRoleBadge"></span>
-      <button id="cfgBtn" aria-label="Settings" style="background:rgba(255,255,255,.15);border:none;color:#fff;font-size:20px;border-radius:10px;padding:6px 10px;cursor:pointer">⚙</button>
       <button id="logoutBtn" aria-label="Logout" title="Logout" style="background:rgba(255,255,255,.15);border:none;color:#fff;font-size:16px;border-radius:10px;padding:6px 10px;cursor:pointer">↩</button>
     </div>
   </div>
@@ -953,28 +952,9 @@
 
 <div class="toast" id="toast"></div>
 
-<div id="cfgModal" style="display:none;position:fixed;inset:0;background:rgba(13,59,74,.55);z-index:60;padding:20px;overflow:auto">
-  <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;padding:20px">
-    <h2 style="margin:0 0 4px;color:var(--navy);font-size:18px">App settings</h2>
-    <p class="hint" style="margin:0 0 14px">Paste the Apps Script Web App URL (ends in <b>/exec</b>). Stored on this device only.</p>
-    <label>Backend URL</label>
-    <input id="cfgUrl" placeholder="https://script.google.com/macros/s/…/exec" />
-    <label>Secret token</label>
-    <input id="cfgToken" placeholder="TM2026SECRET (or leave blank)" />
-    <div style="display:flex;gap:10px;margin-top:16px">
-      <button class="btn-draft" style="flex:1;border:none;border-radius:12px;padding:13px;font-weight:700;cursor:pointer" id="cfgTest">Test connection</button>
-      <button class="btn-submit" style="flex:1;border:none;border-radius:12px;padding:13px;font-weight:700;color:#fff;cursor:pointer" id="cfgSave">Save</button>
-    </div>
-    <div class="hint" id="cfgMsg" style="margin-top:10px"></div>
-    <button id="cfgResetProd" style="margin-top:10px;width:100%;background:none;border:1px solid #F0A500;color:#B26A00;border-radius:10px;padding:10px;font-weight:600;cursor:pointer;font-size:13px">↩ Reset to production URL</button>
-    <button id="cfgClose" style="margin-top:8px;width:100%;background:none;border:1px solid var(--line);border-radius:10px;padding:10px;cursor:pointer">Close</button>
-  </div>
-</div>
 
 <script>
 /* ============ CONFIG — edit these two lines ============ */
-// Optional fallback defaults. You can leave these as-is and set the URL
-// inside the app (⚙ Settings). Values entered in the app take priority.
 const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbyRWOzhC12yIn9Lnlrzo088n1t-mhsuzMK7Ua0ZEuQjmht-N7VuvZ1jq6b4bfVcK_lX7g/exec';
 const DEFAULT_TOKEN = 'TM2026SECRET';   // must match Code.gs (or '' to disable)
 
@@ -1021,7 +1001,7 @@ function refreshSchoolOptions(){
   if(list.length){
     sel.innerHTML='<option value="">Select school…</option>'+list.map(s=>`<option value="${s.name}" data-code="${s.code}">${s.name}</option>`).join('');
   } else if(SCHOOLS.length===0){
-    sel.innerHTML='<option value="">Schools not loaded — tap ⚙ → Test Schools</option>';
+    sel.innerHTML='<option value="">Schools not loaded — check backend connection</option>';
   } else {
     const partners=[...new Set(SCHOOLS.map(s=>s.partner))];
     sel.innerHTML=`<option value="">No match for "${partner}" — sheet has: ${partners.join(', ')}</option>`;
@@ -1354,7 +1334,7 @@ $('submitBtn').onclick = async () => {
 
 async function send(payload){
   const url = getCfg().url;
-  if(!url) { toast('Set the backend URL first (⚙ top right)'); return false; }
+  if(!url) { toast('Backend URL not configured.'); return false; }
   try{
     const r=await fetch(url,{method:'POST',
       headers:{'Content-Type':'text/plain;charset=utf-8'}, // avoids CORS preflight
@@ -1452,54 +1432,6 @@ window.addEventListener('online',netStatus);
 window.addEventListener('offline',netStatus);
 
 /* ---------- settings modal ---------- */
-function openCfg(){
-  const c=getCfg();
-  const isTest = c.url && c.url !== DEFAULT_URL;
-  $('cfgUrl').value=c.url||''; $('cfgToken').value=c.token||'';
-  $('cfgMsg').textContent = isTest ? 'Currently using TEST backend.' : 'Currently using production backend.';
-  $('cfgMsg').style.color = isTest ? '#B26A00' : 'var(--ok)';
-  $('cfgResetProd').style.display = isTest ? 'block' : 'none';
-  $('cfgModal').style.display='block';
-}
-$('cfgBtn').onclick=openCfg;
-$('cfgClose').onclick=()=>$('cfgModal').style.display='none';
-$('cfgSave').onclick=()=>{
-  const u=$('cfgUrl').value.trim();
-  if(u && !/\/exec$/.test(u)){ $('cfgMsg').textContent='URL should end in /exec.'; return; }
-  setCfg(u,$('cfgToken').value.trim());
-  updateEnvChip();
-  $('cfgModal').style.display='none'; toast('Settings saved ✓'); flushQueue(); loadSchools().then(()=>{ refreshPartnerDropdowns(); refreshSchoolOptions(); });
-};
-$('cfgResetProd').onclick=()=>{
-  if(!confirm('Reset to the production backend URL?')) return;
-  setCfg('',DEFAULT_TOKEN); updateEnvChip();
-  $('cfgUrl').value=''; $('cfgToken').value=DEFAULT_TOKEN;
-  $('cfgMsg').textContent='Switched to production URL.';
-  flushQueue(); loadSchools().then(()=>{ refreshPartnerDropdowns(); refreshSchoolOptions(); });
-  toast('Switched to production ✓');
-};
-$('cfgTest').onclick=async()=>{
-  const u=$('cfgUrl').value.trim();
-  if(!u){ $('cfgMsg').textContent='Enter a URL first.'; $('cfgMsg').style.color='var(--err)'; return; }
-  $('cfgMsg').textContent='Testing schools…'; $('cfgMsg').style.color='inherit';
-  try{
-    const r=await fetch(u+(u.includes('?')?'&':'?')+'action=schools');
-    const j=await r.json();
-    if(j.status==='ok'&&Array.isArray(j.schools)){
-      const partners=[...new Set(j.schools.map(s=>s.partner))];
-      if(j.schools.length){
-        $('cfgMsg').textContent=`✓ ${j.schools.length} schools found. Partners: ${partners.join(', ')}`;
-        $('cfgMsg').style.color='var(--ok)';
-      } else {
-        $('cfgMsg').textContent='Connected but 0 schools returned. Check Schools_List tab name and column headers (need: Partner, School, School Code).';
-        $('cfgMsg').style.color='#B26A00';
-      }
-    } else {
-      $('cfgMsg').textContent='Unexpected response: '+JSON.stringify(j).slice(0,120);
-      $('cfgMsg').style.color='var(--err)';
-    }
-  }catch(e){ $('cfgMsg').textContent='Could not reach URL. Check it ends in /exec and Who has access = Anyone.'; $('cfgMsg').style.color='var(--err)'; }
-};
 
 /* ============================================================
    SESSION + AUTH
@@ -1529,7 +1461,7 @@ $('loginBtn').onclick = async () => {
   if(!email||!pin){ showLoginErr('Enter email and PIN.'); return; }
   $('loginBtn').disabled=true; $('loginBtn').textContent='Logging in…';
   const url=getCfg().url;
-  if(!url){ showLoginErr('Backend URL not set. Tap ⚙ after login.'); $('loginBtn').disabled=false; $('loginBtn').textContent='Login'; return; }
+  if(!url){ showLoginErr('Backend URL not configured.'); $('loginBtn').disabled=false; $('loginBtn').textContent='Login'; return; }
   try{
     const r=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
       body:JSON.stringify({action:'login',email,pin})});
@@ -1608,7 +1540,7 @@ const MENU_ITEMS = [
   { id:'iifDash',      title:'School Dashboard',            perm:'iifDash',    icon:'🏫' },
   { id:'trackerScreen',title:'Form Completion Tracker',     perm:'tracker',    icon:'✅' },
   { id:'adminUsers',   title:'Admin · User Management',     perm:'adminPanel', icon:'👤' },
-  { id:'adminPerms',   title:'Admin · Access Control',      perm:'adminPanel', icon:'🔒' },
+  { id:'adminPerms',   title:'Admin · Grade Configuration',  perm:'adminPanel', icon:'📊' },
   { id:'buddyScreen',  title:'Inqui Buddy · Innovation Evaluator', perm:'buddy', icon:'★' },
   { id:'sessionObsHome', title:'Unit 1 Session Observations', perm:'sessionObs', icon:'👁' },
 ];
@@ -4869,7 +4801,14 @@ async function soViewSession(idx){
     const j=await r.json();
     if(j.status!=='ok'){ $('soFormContent').innerHTML='<div class="card"><p class="hint">Could not load submission.</p></div>'; return; }
     const backBtn=`<button onclick="showScreen('sessionObsSessions')" style="background:none;border:none;color:var(--blue);font-size:14px;font-weight:600;cursor:pointer;padding:0 0 12px 0">&#8592; Back to sessions</button>`;
-    const row=(label,val)=>`<tr><td style="font-weight:600;padding:10px 12px;width:45%;border-bottom:1px solid var(--line)">${label}</td><td style="padding:10px 12px;border-bottom:1px solid var(--line)">${val||'—'}</td></tr>`;
+    const formatVal=(val)=>{
+      if(!val) return '—';
+      const parts=String(val).split(/,\s*|\n/).map(s=>s.trim()).filter(Boolean);
+      const urls=parts.filter(s=>s.startsWith('https://'));
+      if(!urls.length) return val;
+      return urls.map((u,i)=>`<a href="${u}" target="_blank" rel="noopener" style="color:var(--blue);font-weight:600;display:inline-block;margin-right:8px">File ${i+1} ↗</a>`).join('');
+    };
+    const row=(label,val)=>`<tr><td style="font-weight:600;padding:10px 12px;width:45%;border-bottom:1px solid var(--line)">${label}</td><td style="padding:10px 12px;border-bottom:1px solid var(--line)">${formatVal(val)}</td></tr>`;
     const submittedBadge='<span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;background:#DCFCE7;color:#15803D;display:inline-block;margin-bottom:12px">&#10003; Submitted</span>';
     const pendingBadge='<span style="font-size:12px;font-weight:400;padding:3px 10px;border-radius:20px;background:#F3F4F6;color:var(--muted);display:inline-block;margin-bottom:12px">Not yet submitted</span>';
     const commonRows=(d)=>
@@ -4890,7 +4829,9 @@ async function soViewSession(idx){
       +row('Q11 — Attention activity',d['Q11 Attention Activity'])
       +row('Q12 — Timer used?',Array.isArray(d['Q12 Timer Used'])?d['Q12 Timer Used'].join(', '):d['Q12 Timer Used'])
       +row('Q13 — Time keeper',d['Q13 Time Keeper'])
-      +row('Q15 — Feedback',d['Q15 Optional Feedback']);
+      +row('Q14 — Session photos',d['Q14 Session Photos'])
+      +row('Q15 — Feedback',d['Q15 Optional Feedback'])
+      +row('Q16 — Workbook photos',d['Q16 Workbook Photos']);
     const iifRows=(d)=>commonRows(d)
       +row('Q17a — SL Guide used?',d['Q17a SL Guide Used'])
       +row('Q17b — SL Guide feedback',d['Q17b SL Guide Feedback'])

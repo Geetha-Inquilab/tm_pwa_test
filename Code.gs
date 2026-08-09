@@ -3,8 +3,8 @@
  * Inqui-Lab Foundation
  *
  * Roles: Admin, IIF, School
- * New tabs: Users, Sessions, RolePermissions
- * New doPost actions: login, saveUser, savePermissions
+ * New tabs: Users, Sessions
+ * New doPost actions: login, saveUser
  * New doGet  actions: schoolData, allSchoolStatus, formData, schools
  */
 
@@ -85,7 +85,6 @@ function doPost(e) {
     }
 
     if (action === 'saveUser')               return handleSaveUser(payload);
-    if (action === 'savePermissions')        return handleSavePermissions(payload);
     if (action === 'extractTeamData')        return handleExtractTeamData(payload);
     if (action === 'processInnovation')      return handleProcessInnovation(payload);
     if (action === 'saveIdeaArtifact')       return handleSaveIdeaArtifact(payload);
@@ -124,7 +123,6 @@ function doGet(e) {
   if (action === 'allForm4Submissions')      return handleAllForm4Submissions(p);
   if (action === 'getSchoolGradesAndSections') return handleGetSchoolGradesAndSections(p);
   if (action === 'getSchoolBuddyTeams')      return handleGetSchoolBuddyTeams(p);
-  if (action === 'getPermissions')           return handleGetPermissions(p);
   if (action === 'getGradeConfig')           return handleGetGradeConfig(p);
   if (action === 'getGradeTeams')            return handleGetGradeTeams(p);
   if (action === 'getSessionObs')            return handleGetSessionObs(p);
@@ -214,21 +212,6 @@ function handleLogin(payload) {
 }
 
 function loadPermissions(ss, role) {
-  var sheet = ss.getSheetByName('RolePermissions');
-  if (!sheet) return defaultPermissions(role);
-  var data = sheet.getDataRange().getValues();
-  if (data.length < 2) return defaultPermissions(role);
-  // Row 1 = header: Role, form1, form2, form3, form4, iifDash, tracker, editSubmit, adminPanel
-  var header = data[0];
-  for (var i = 1; i < data.length; i++) {
-    if (String(data[i][0]).toLowerCase() === role.toLowerCase()) {
-      var perms = {};
-      for (var j = 1; j < header.length; j++) {
-        perms[header[j]] = (String(data[i][j]).toUpperCase() === 'Y');
-      }
-      return perms;
-    }
-  }
   return defaultPermissions(role);
 }
 
@@ -284,47 +267,6 @@ function handleSaveUser(payload) {
   var pin = u.pin || String(Math.floor(100000 + Math.random() * 900000));
   users.appendRow([email, u.name || '', u.role || 'IIF', u.schoolCode || '', pin, u.active !== false ? 'Y' : 'N']);
   return json({ status: 'ok', action: 'created', pin: pin });
-}
-
-// -------- SAVE PERMISSIONS --------
-
-function handleSavePermissions(payload) {
-  var ss = getSheet();
-  var sheet = getOrCreatePermissionsTab(ss);
-  var perms = payload.permissions || {};
-  // perms = { IIF: { form1:true, ... }, School: { form1:false, ... } }
-  var features = ['form1','form2','form3','form4','form5','iifDash','tracker','editSubmit','adminPanel','buddy','sessionObs'];
-  var header = ['Role'].concat(features);
-  var rows = [header];
-  var roles = ['Admin','IIF','School'];
-  roles.forEach(function(role) {
-    var rp = perms[role] || defaultPermissions(role);
-    var row = [role];
-    features.forEach(function(f) { row.push(rp[f] ? 'Y' : 'N'); });
-    rows.push(row);
-  });
-  sheet.clearContents();
-  sheet.getRange(1, 1, rows.length, header.length).setValues(rows);
-  return json({ status: 'ok' });
-}
-
-function handleGetPermissions(p) {
-  var ss = getSheet();
-  var sheet = getOrCreatePermissionsTab(ss);
-  var data = sheet.getDataRange().getValues();
-  if (data.length < 2) return json({ status: 'ok', permissions: {} });
-  var header = data[0];
-  var result = {};
-  for (var i = 1; i < data.length; i++) {
-    var role = String(data[i][0]).trim();
-    if (!role) continue;
-    var rp = {};
-    for (var j = 1; j < header.length; j++) {
-      rp[String(header[j])] = data[i][j] === 'Y';
-    }
-    result[role] = rp;
-  }
-  return json({ status: 'ok', permissions: result });
 }
 
 // -------- GET SCHOOLS --------
@@ -1165,22 +1107,6 @@ function getOrCreateSessionsTab(ss) {
     sheet = ss.insertSheet('Sessions');
     sheet.appendRow(['Token','Email','Expires At']);
     sheet.getRange(1,1,1,3).setFontWeight('bold').setBackground('#0D3B4A').setFontColor('#FFFFFF');
-    sheet.setFrozenRows(1);
-  }
-  return sheet;
-}
-
-function getOrCreatePermissionsTab(ss) {
-  var sheet = ss.getSheetByName('RolePermissions');
-  if (!sheet) {
-    sheet = ss.insertSheet('RolePermissions');
-    var features = ['form1','form2','form3','form4','form5','iifDash','tracker','editSubmit','adminPanel','buddy','sessionObs'];
-    var header = ['Role'].concat(features);
-    sheet.appendRow(header);
-    sheet.appendRow(['Admin','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y']);
-    sheet.appendRow(['IIF',  'Y','Y','Y','Y','Y','Y','Y','Y','N','Y','Y']);
-    sheet.appendRow(['School','N','N','N','N','N','N','N','N','N','N','N']);
-    sheet.getRange(1,1,1,header.length).setFontWeight('bold').setBackground('#0D3B4A').setFontColor('#FFFFFF');
     sheet.setFrozenRows(1);
   }
   return sheet;

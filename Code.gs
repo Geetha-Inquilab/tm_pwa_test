@@ -334,25 +334,39 @@ function handleSchoolData(p) {
   var ss = getSheet();
   var partnerName = getPartnerForSchool(ss, schoolCode);
   var pEntry = (getPartnerConfig(ss)[partnerName] || {});
-  var targetSS = (partnerName && pEntry.sheetId) ? SpreadsheetApp.openById(pEntry.sheetId) : ss;
+  var targetSS = null;
+  function getTargetSS() {
+    if (!targetSS) targetSS = (partnerName && pEntry.sheetId) ? SpreadsheetApp.openById(pEntry.sheetId) : ss;
+    return targetSS;
+  }
 
   var result = {};
+  var partnerKey = partnerName || 'master';
   var formKeys = ['form1_school_orientation','form2_schools_contact','form3_student_data','form4_sl_selection','form5_kits_handover'];
   formKeys.forEach(function(fk) {
     var schema = FORM_SCHEMAS[fk];
     if (!schema) return;
-    var sheet = targetSS.getSheetByName(schema.tabName);
-    if (!sheet) { result[fk] = null; return; }
-    var data = sheet.getDataRange().getValues();
-    var header = data[0];
+
+    // Use tab-level cache (all schools for this partner+form) — warms on first access
+    var tabKey = 'tab_' + partnerKey + '_' + fk;
+    var tabData = getCached(tabKey);
+    if (!tabData) {
+      var sheet = getTargetSS().getSheetByName(schema.tabName);
+      if (!sheet) { result[fk] = null; return; }
+      tabData = sheet.getDataRange().getValues();
+      setCached(tabKey, tabData, 300);
+    }
+
+    // Filter for this school in memory — no sheet read
+    var header = tabData[0];
     var scIdx = header.indexOf('School Code');
     var statusIdx = header.indexOf('Status');
     var latest = null, latestDate = null;
-    for (var i = 1; i < data.length; i++) {
-      if (String(data[i][scIdx]).trim().toUpperCase() !== schoolCode) continue;
-      if (statusIdx >= 0 && String(data[i][statusIdx]).toLowerCase() === 'superseded') continue;
-      var d = new Date(data[i][1]);
-      if (!latestDate || d > latestDate) { latestDate = d; latest = data[i]; }
+    for (var i = 1; i < tabData.length; i++) {
+      if (String(tabData[i][scIdx]).trim().toUpperCase() !== schoolCode) continue;
+      if (statusIdx >= 0 && String(tabData[i][statusIdx]).toLowerCase() === 'superseded') continue;
+      var d = new Date(tabData[i][1]);
+      if (!latestDate || d > latestDate) { latestDate = d; latest = tabData[i]; }
     }
     if (!latest) { result[fk] = null; return; }
     var obj = {};
@@ -520,7 +534,11 @@ function handleFormSubmit(payload) {
 
   uploadPhotos(payload, ss, partner, partnerSS);
   var _sc = ((payload.header || {}).schoolCode || '').trim().toUpperCase();
-  clearCachedKeys(['allSchoolStatus'].concat(_sc ? ['sd_' + _sc] : []));
+  var _partnerKey = partner || 'master';
+  var keysToInvalidate = ['allSchoolStatus'];
+  if (_sc) keysToInvalidate.push('sd_' + _sc);
+  keysToInvalidate.push('tab_' + _partnerKey + '_' + payload.formId);
+  clearCachedKeys(keysToInvalidate);
   return json({ status: 'success', submissionId: payload.submissionId || '' });
 }
 

@@ -3748,13 +3748,14 @@ function renderTeluguCell(text, colWidthMm, lineHmm, color){
   if(cur) lines.push(cur);
   if(!lines.length) lines.push(text);
   const canvas=document.createElement('canvas');
-  canvas.width=Math.ceil(maxWpx*scale); canvas.height=Math.ceil(lines.length*lineHpx*scale);
+  const botPad=Math.ceil(fontPx*0.6); // extra room for Telugu subscript/conjunct descenders
+  canvas.width=Math.ceil(maxWpx*scale); canvas.height=Math.ceil((lines.length*lineHpx+botPad)*scale);
   const ctx=canvas.getContext('2d');
   ctx.scale(scale,scale);
   ctx.font=fontPx+'px "Noto Sans Telugu"';
   ctx.fillStyle=color||'#282828';
   lines.forEach((ln,i)=>ctx.fillText(ln,0,(i+1)*lineHpx-fontPx*0.25));
-  return { dataUri:canvas.toDataURL('image/png'), heightMm:lines.length*lineHpx/pxPerMm, lineCount:lines.length };
+  return { dataUri:canvas.toDataURL('image/png'), heightMm:(lines.length*lineHpx+botPad)/pxPerMm, lineCount:lines.length };
 }
 
 async function buddyPDFDrawTable(doc, engQs, telQs, teluguAvailable, tableY, engIntro, telIntro){
@@ -3826,6 +3827,27 @@ async function buddyPDFDrawTable(doc, engQs, telQs, teluguAvailable, tableY, eng
     }
     y+=rowH;
   }
+
+  // Instruction row below all questions
+  const engInstr='Discuss these questions with your team, improve your idea, and redraw your final idea.';
+  const telInstr='ఈ ప్రశ్నలను మీ టీమ్‌తో చర్చించి, మీ ఆలోచనలో మార్పులు చేసి, చివరి ఆలోచనను మళ్లీ గీయండి (Draw cheyandi).';
+  const instrLines=doc.setFont('helvetica','italic').setFontSize(fs).splitTextToSize(engInstr,colW-6);
+  let telInstrImg=null;
+  if(teluguAvailable){
+    try{ telInstrImg=renderTeluguCell(telInstr,colW-7,lineH,'#5d4000'); }catch(e){}
+  }
+  const telInstrLineCount=telInstrImg?telInstrImg.lineCount:instrLines.length;
+  const instrRowH=Math.max(instrLines.length,telInstrLineCount)*lineH+rowPad*2+2;
+  doc.setFillColor(255,248,225);
+  doc.rect(ml,y,colW,instrRowH,'F'); doc.rect(telX,y,colW,instrRowH,'F');
+  doc.setDrawColor(249,168,37); doc.rect(ml,y,colW,instrRowH); doc.rect(telX,y,colW,instrRowH);
+  doc.setFont('helvetica','italic'); doc.setFontSize(fs); doc.setTextColor(93,64,0);
+  doc.text(instrLines,ml+3,y+rowPad+lineH*0.8);
+  if(telInstrImg){
+    try{ doc.addImage(telInstrImg.dataUri,'PNG',telX+2,y+rowPad,colW-5,Math.min(telInstrImg.heightMm,instrRowH-rowPad)); }catch(e){}
+  }
+  y+=instrRowH;
+
   return y;
 }
 
@@ -3895,11 +3917,12 @@ async function downloadBuddyPDF(){
   doc.text('Feedback Questions',pageW/2,headY,{align:'center'});
 
   // Questions table
-  await buddyPDFDrawTable(doc,engQs,telQs,teluguLoaded,headY+5,engIntro,telIntro);
+  const tableEndY=await buddyPDFDrawTable(doc,engQs,telQs,teluguLoaded,headY+5,engIntro,telIntro);
 
-  // Footer
+  // Footer — placed dynamically so it never overlaps table content
+  const footerY=Math.max(tableEndY+3,pageH-7);
   doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(170,170,170);
-  doc.text('Page 1 of 1   |   Inqui Buddy   |   Inqui-Lab Foundation   |   Think & Make 2026-27',ml,290);
+  doc.text('Page 1 of 1   |   Inqui Buddy   |   Inqui-Lab Foundation   |   Think & Make 2026-27',ml,footerY);
 
   const fname='InquiBuddy_'+escHtml(buddyState.schoolCode)+'_Team'+escHtml(String(buddyState.teamId))+'_'+new Date().toISOString().slice(0,10)+'.pdf';
   doc.save(fname);
@@ -4827,11 +4850,12 @@ async function sbDownloadTeamPDF(teamCode){
   doc.text('Feedback Questions',pageW/2,headY,{align:'center'});
 
   // Questions table
-  await buddyPDFDrawTable(doc,engQs,telQs,teluguLoaded,headY+5,engIntro,telIntro);
+  const tableEndY=await buddyPDFDrawTable(doc,engQs,telQs,teluguLoaded,headY+5,engIntro,telIntro);
 
-  // Footer
+  // Footer — placed dynamically so it never overlaps table content
+  const footerY=Math.max(tableEndY+3,pageH-7);
   doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(170,170,170);
-  doc.text('Page 1 of 1   |   Inqui Buddy   |   Inqui-Lab Foundation   |   Think & Make 2026-27',ml,290);
+  doc.text('Page 1 of 1   |   Inqui Buddy   |   Inqui-Lab Foundation   |   Think & Make 2026-27',ml,footerY);
 
   const date=new Date().toISOString().slice(0,10).replace(/-/g,'');
   doc.save('InquiBuddy_'+schoolBuddyState.schoolCode+'_Team'+teamCode+'_'+date+'.pdf');
@@ -4852,6 +4876,7 @@ async function sbDownloadAllPDF(){
   const ml=12, pageW=210, pageH=297;
   const colW=88, imgX=106, imgW=92, topH=78, topY=32;
   let firstTeam=true;
+  const tableEndYs=[];
 
   for(const team of teams){
     if(!firstTeam) doc.addPage();
@@ -4942,16 +4967,18 @@ async function sbDownloadAllPDF(){
     doc.text('Feedback Questions',pageW/2,headY,{align:'center'});
 
     // Questions table
-    await buddyPDFDrawTable(doc,engQs,telQs,teluguLoaded,headY+5,engIntro,telIntro);
+    const tblEnd=await buddyPDFDrawTable(doc,engQs,telQs,teluguLoaded,headY+5,engIntro,telIntro);
+    tableEndYs.push(tblEnd);
   }
 
-  // Page numbers
+  // Page numbers + footers placed dynamically below each team's table
   const totalPages=doc.getNumberOfPages();
   for(let p=1;p<=totalPages;p++){
     doc.setPage(p);
+    const footerY=Math.max((tableEndYs[p-1]||0)+3,pageH-7);
     doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(170,170,170);
-    doc.text('Page '+p+' of '+totalPages,pageW-ml,pageH-7,{align:'right'});
-    doc.text('Inqui Buddy  |  Inqui-Lab Foundation  |  Think & Make 2026-27',ml,pageH-7);
+    doc.text('Page '+p+' of '+totalPages,pageW-ml,footerY,{align:'right'});
+    doc.text('Inqui Buddy  |  Inqui-Lab Foundation  |  Think & Make 2026-27',ml,footerY);
   }
 
   const date=new Date().toISOString().slice(0,10).replace(/-/g,'');

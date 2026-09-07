@@ -787,6 +787,10 @@
         <label>Programme Level (auto-filled)</label>
         <input id="soLevelDisplay" readonly style="background:var(--pastel);font-weight:700" placeholder="Select a grade above" />
       </div>
+      <div id="soSectionRow" style="margin-top:12px;display:none">
+        <label>Select Section(s) observed <span class="req">*</span></label>
+        <div class="chips" id="soSectionChips" style="gap:10px;flex-wrap:wrap;margin-top:8px"></div>
+      </div>
     </div>
   </div>
   <div style="padding:0 0 20px">
@@ -4990,7 +4994,7 @@ async function sbDownloadAllPDF(){
    ============================================================ */
 
 // ---------- State ----------
-let soState = { partner:'', school:'', schoolCode:'', schoolTrack:'', grade:'', level:0, unit:1, sessionIndex:0, sessionName:'', role:'', yourName:'' };
+let soState = { partner:'', school:'', schoolCode:'', schoolTrack:'', grade:'', sections:[], level:0, unit:1, sessionIndex:0, sessionName:'', role:'', yourName:'' };
 let navStack = [];
 let currentScreen = null;
 let isGoingBack = false;
@@ -4998,6 +5002,7 @@ let soAnswers = {};
 let soPhotos = {};
 let soLang = localStorage.getItem('tm_so_lang') || 'en';
 let soSchoolGrades = [];
+let soGradesSections = [];
 let soGradeConfigData = [];
 
 
@@ -5444,9 +5449,9 @@ function initSOHome(){
   const s=getSession();
   soState.role=(s&&s.role||'').toLowerCase();
   soState.yourName=s&&s.name||'';
-  soState.partner=''; soState.school=''; soState.schoolCode=''; soState.schoolTrack=''; soState.grade=''; soState.level=0;
-  soSchoolGrades=[]; soGradeConfigData=[];
-  $('soGradeSection').style.display='none';
+  soState.partner=''; soState.school=''; soState.schoolCode=''; soState.schoolTrack=''; soState.grade=''; soState.sections=[]; soState.level=0;
+  soSchoolGrades=[]; soGradeConfigData=[]; soGradesSections=[];
+  $('soGradeSection').style.display='none'; $('soSectionRow').style.display='none';
   $('soNoForm1').style.display='none';
   $('soHomeNextBtn').disabled=true;
 
@@ -5468,8 +5473,8 @@ function initSOHome(){
 
 function soOnPartnerChange(){
   soState.partner=$('soPartner').value;
-  soState.school=''; soState.schoolCode=''; soState.schoolTrack=''; soState.grade=''; soState.level=0;
-  $('soGradeSection').style.display='none'; $('soNoForm1').style.display='none'; $('soHomeNextBtn').disabled=true;
+  soState.school=''; soState.schoolCode=''; soState.schoolTrack=''; soState.grade=''; soState.sections=[]; soState.level=0;
+  $('soGradeSection').style.display='none'; $('soSectionRow').style.display='none'; $('soNoForm1').style.display='none'; $('soHomeNextBtn').disabled=true;
   const list=SCHOOLS.filter(s=>s.partner===soState.partner).sort((a,b)=>a.name.localeCompare(b.name));
   $('soSchool').innerHTML='<option value="">Select school…</option>'+list.map(s=>`<option value="${s.name}" data-code="${s.code}" data-track="${s.schoolTrack||''}">${s.name}</option>`).join('');
 }
@@ -5479,8 +5484,8 @@ async function soOnSchoolChange(){
   soState.school=$('soSchool').value;
   soState.schoolCode=opt?opt.dataset.code:'';
   soState.schoolTrack=opt?(opt.dataset.track||''):'';
-  soState.grade=''; soState.level=0;
-  $('soGradeSection').style.display='none'; $('soNoForm1').style.display='none'; $('soHomeNextBtn').disabled=true;
+  soState.grade=''; soState.sections=[]; soState.level=0;
+  $('soGradeSection').style.display='none'; $('soSectionRow').style.display='none'; $('soNoForm1').style.display='none'; $('soHomeNextBtn').disabled=true;
   if(!soState.schoolCode) return;
   await soFetchSchoolData(soState.schoolCode);
 }
@@ -5499,14 +5504,16 @@ async function soFetchSchoolData(schoolCode){
   const s=getSession(); const url=getCfg().url; if(!s||!url) return;
   $('soSchoolLoader').style.display='block';
   try{
-    const [sd,gc]=await Promise.all([
+    const [sd,gc,gs]=await Promise.all([
       fetchSchoolData(url, schoolCode, s.token),
-      fetchGradeConfig(url, s.token)
+      fetchGradeConfig(url, s.token),
+      fetch(url+'?action=getSchoolGradesAndSections&schoolCode='+encodeURIComponent(schoolCode)+'&token='+encodeURIComponent(s.token)).then(r=>r.json()).catch(()=>({status:'error'}))
     ]);
     const f1=sd.status==='ok'&&sd.data&&sd.data.form1_school_orientation;
     if(!f1){ $('soNoForm1').style.display='block'; return; }
     soSchoolGrades=String(f1['Grades']||'').split(',').map(g=>g.trim()).filter(Boolean);
     soGradeConfigData=(gc.status==='ok'&&Array.isArray(gc.configs))?gc.configs:[];
+    soGradesSections=(gs.status==='ok'&&Array.isArray(gs.gradesAndSections))?gs.gradesAndSections:[];
     soRenderGradeChips();
     $('soGradeSection').style.display='block';
   }catch(e){ toast('Could not load school data.'); }
@@ -5527,6 +5534,7 @@ function soRenderGradeChips(){
 
 function soSelectGrade(grade){
   soState.grade=grade;
+  soState.sections=[];
   const cfgMap={};
   soGradeConfigData.forEach(c=>{
     const partnerOk=!c.partner||c.partner===soState.partner;
@@ -5539,7 +5547,25 @@ function soSelectGrade(grade){
   $('soLevelRow').style.display='block';
   if(lvl){ $('soLevelDisplay').value='Level '+lvl+' (Year '+lvl+')'; }
   else { $('soLevelDisplay').value='Not configured — see Admin · Grade Config'; }
-  $('soHomeNextBtn').disabled=!grade||!lvl;
+  const secs=soGradesSections.filter(gs=>gs.grade===grade).map(gs=>gs.section).sort();
+  if(secs.length){
+    $('soSectionChips').innerHTML=secs.map(s=>`<div class="chip" data-sec="${s}" onclick="soToggleSection('${s}')">${s}</div>`).join('');
+    $('soSectionRow').style.display='block';
+  } else {
+    $('soSectionRow').style.display='none';
+  }
+  const sectionsOk=secs.length===0||soState.sections.length>0;
+  $('soHomeNextBtn').disabled=!grade||!lvl||!sectionsOk;
+}
+
+function soToggleSection(sec){
+  const idx=soState.sections.indexOf(sec);
+  if(idx>=0) soState.sections.splice(idx,1); else soState.sections.push(sec);
+  $('soSectionChips').querySelectorAll('.chip').forEach(c=>c.classList.toggle('on',soState.sections.includes(c.dataset.sec)));
+  const grade=soState.grade; const lvl=soState.level;
+  const secs=soGradesSections.filter(gs=>gs.grade===grade);
+  const sectionsOk=secs.length===0||soState.sections.length>0;
+  $('soHomeNextBtn').disabled=!grade||!lvl||!sectionsOk;
 }
 
 async function soSelectUnit(n){
@@ -6190,7 +6216,7 @@ async function submitSessionObs(){
         partner:soState.partner, school:soState.school, schoolCode:soState.schoolCode,
         role:isIIF?'IIF Observer':'Teacher', yourName:soState.yourName,
         level:String(lvl), session:String(sess), unit:String(soState.unit), sessionName:soState.sessionName,
-        grade:soState.grade, schoolTrack:soState.schoolTrack, date:new Date().toLocaleDateString('en-IN')
+        grade:soState.grade, sections:soState.sections, schoolTrack:soState.schoolTrack, date:new Date().toLocaleDateString('en-IN')
       },
       common:{
         q1:soAnswers.q1||'', q2:soAnswers.q2||[], q3Attendance:Number(soAnswers.q3Attendance)||'', q3:soAnswers.q3||'', q4:soAnswers.q4||'',

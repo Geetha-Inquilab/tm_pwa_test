@@ -2388,7 +2388,7 @@ function handleSaveGradeConfig(payload) {
 var SO_COLUMNS = [
   'Submission ID','Submitted At','Submitted By','Form Version','Status',
   'Partner','School','School Code','School Track','Role','Your Name',
-  'Level','Session','Grade','Unit','Session Name','Date',
+  'Level','Session','Grade','Section','Unit','Session Name','Date',
   'Q1 SLs Present','Q2 SL Absent Reason','Q3 Students Attended',
   'Q4 Support SL Role','Q5 Teacher Involvement',
   'Q6 Videos Played','Q7 No Video Reason','Q8 Video Method','Q9 Video Played By','Q10 Students Follow Video',
@@ -2476,6 +2476,7 @@ function buildRowSessionObs(payload) {
     'Level': String(h.level || ''),
     'Session': String(h.session || ''),
     'Grade': String(h.grade || ''),
+    'Section': Array.isArray(h.sections) ? h.sections.join(', ') : (h.section || ''),
     'Unit': String(h.unit || '1'),
     'Session Name': h.sessionName || '',
     'Date': h.date || '',

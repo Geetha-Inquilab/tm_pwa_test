@@ -1764,7 +1764,8 @@ function callGemini(messages, model, jsonMode) {
   var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + modelName + ':generateContent?key=' + apiKey;
 
   var lastError = null;
-  var delays = [0, 5000, 10000]; // retry after 0s, 5s, 10s
+  var isLastErrorRetryable = false;
+  var delays = [0, 8000, 20000]; // retry after 0s, 8s, 20s
   for (var attempt = 0; attempt < delays.length; attempt++) {
     if (delays[attempt] > 0) Utilities.sleep(delays[attempt]);
     var response = UrlFetchApp.fetch(url, {
@@ -1778,9 +1779,12 @@ function callGemini(messages, model, jsonMode) {
       var msg = result.error.message || '';
       var isRetryable = msg.indexOf('high demand') !== -1 || msg.indexOf('RESOURCE_EXHAUSTED') !== -1 ||
                         msg.indexOf('quota') !== -1 || result.error.code === 429 || result.error.code === 503;
-      lastError = new Error('Gemini error: ' + msg);
+      lastError = isRetryable
+        ? new Error('Gemini error: AI is temporarily busy (high demand). Please try again in a few minutes.')
+        : new Error('Gemini error: ' + msg);
+      isLastErrorRetryable = isRetryable;
       if (isRetryable && attempt < delays.length - 1) continue;
-      throw lastError;
+      break;
     }
     var cand = result.candidates && result.candidates[0];
     if (!cand || !cand.content || !cand.content.parts) throw new Error('Gemini returned no content');
@@ -1791,6 +1795,27 @@ function callGemini(messages, model, jsonMode) {
     }
     if (!textPart) throw new Error('Gemini returned no text in response');
     return textPart.text;
+  }
+  // Fallback to a lighter model if the primary model was overloaded
+  var FALLBACK_MODEL = 'gemini-2.0-flash-lite';
+  if (lastError && isLastErrorRetryable && modelName !== FALLBACK_MODEL) {
+    var fbUrl = 'https://generativelanguage.googleapis.com/v1beta/models/' + FALLBACK_MODEL + ':generateContent?key=' + apiKey;
+    var fbResp = UrlFetchApp.fetch(fbUrl, {
+      method: 'post',
+      headers: { 'Content-Type': 'application/json' },
+      payload: JSON.stringify(reqPayload),
+      muteHttpExceptions: true
+    });
+    var fbResult = JSON.parse(fbResp.getContentText());
+    if (!fbResult.error) {
+      var fbCand = fbResult.candidates && fbResult.candidates[0];
+      if (fbCand && fbCand.content && fbCand.content.parts) {
+        for (var fpi = 0; fpi < fbCand.content.parts.length; fpi++) {
+          var fp = fbCand.content.parts[fpi];
+          if (fp.text && !fp.thought) return fp.text;
+        }
+      }
+    }
   }
   throw lastError;
 }
@@ -2200,7 +2225,7 @@ function handleGenerateSectionFeedback(payload) {
       var msgs = buildBuddyFeedbackMessages(imageBase64, imageMime);
       feedback = callGemini(msgs, 'gemini-3.6-flash', null);
     } catch(e) {
-      errors.push({ teamCode: teamCode, error: 'Gemini error: ' + e.message });
+      errors.push({ teamCode: teamCode, error: e.message });
       continue;
     }
 

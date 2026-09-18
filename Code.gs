@@ -966,10 +966,10 @@ function extractStudentDataFromPhoto(photoBase64, photoUrl, payload, targetSS, p
       ]}
     ];
 
-    var rawResult = callGemini(extractPrompt, 'gemini-3.6-flash', false);
+    var rawResult = callClaude(extractPrompt, 'claude-haiku-4-5-20251001', false);
     var cleaned = rawResult.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     var slBlocks = JSON.parse(cleaned);
-    if (!Array.isArray(slBlocks)) throw new Error('Gemini returned non-array');
+    if (!Array.isArray(slBlocks)) throw new Error('AI returned non-array');
 
     var rows = [];
     var now = new Date().toISOString();
@@ -1604,9 +1604,9 @@ function handleExtractTeamData(payload) {
     ];
     var rawResult = null;
     try {
-      rawResult = callGemini(extractPrompt, 'gemini-3.6-flash', false);
+      rawResult = callClaude(extractPrompt, 'claude-haiku-4-5-20251001', false);
     } catch(e) {
-      errors.push('Photo ' + (pi+1) + ' Gemini error: ' + e.message);
+      errors.push('Photo ' + (pi+1) + ' AI error: ' + e.message);
       continue;
     }
     // Step 4: Parse JSON response
@@ -1619,7 +1619,7 @@ function handleExtractTeamData(payload) {
       continue;
     }
     if (!Array.isArray(extracted)) {
-      errors.push('Photo ' + (pi+1) + ': GPT-4o returned non-array. Type: ' + typeof extracted + '. Value: ' + JSON.stringify(extracted).slice(0, 200));
+      errors.push('Photo ' + (pi+1) + ': AI returned non-array. Type: ' + typeof extracted + '. Value: ' + JSON.stringify(extracted).slice(0, 200));
       continue;
     }
     // Step 5: Save rows to TM_Teams_Data
@@ -1680,7 +1680,7 @@ function handleProcessInnovation(payload) {
 
   // Generate feedback
   var feedbackMessages = buildBuddyFeedbackMessages(imageBase64, imageMime);
-  var feedback = callGemini(feedbackMessages, 'gemini-3.6-flash', null);
+  var feedback = callClaude(feedbackMessages, 'claude-sonnet-4-6', null);
 
   // Upload audio to Drive (optional)
   var audioDriveUrl = '';
@@ -1712,110 +1712,69 @@ function handleProcessInnovation(payload) {
   return json({ status: 'ok', feedback: feedback, imageUrl: ideaImageUrl, audioUrl: audioDriveUrl });
 }
 
-// -------- GEMINI HELPER --------
+// -------- CLAUDE HELPER --------
 
-function callGemini(messages, model, jsonMode) {
+function callClaude(messages, model, jsonMode) {
   var props = PropertiesService.getScriptProperties();
-  var apiKey = props.getProperty('GEMINI_API_KEY');
-  if (!apiKey) throw new Error('GEMINI_API_KEY not set in Script Properties. Go to Extensions > Apps Script > Project Settings > Script Properties and add it.');
+  var apiKey = props.getProperty('CLAUDE_API_KEY');
+  if (!apiKey) throw new Error('CLAUDE_API_KEY not set in Script Properties. Go to Extensions > Apps Script > Project Settings > Script Properties and add it.');
 
-  var systemParts = [];
-  var contents = [];
+  var systemContent = null;
+  var userMessages = [];
 
   for (var i = 0; i < messages.length; i++) {
     var msg = messages[i];
     if (msg.role === 'system') {
-      var text = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
-      systemParts.push({ text: text });
+      systemContent = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
     } else {
-      var parts = [];
+      var content;
       if (typeof msg.content === 'string') {
-        parts.push({ text: msg.content });
+        content = msg.content;
       } else if (Array.isArray(msg.content)) {
+        content = [];
         for (var j = 0; j < msg.content.length; j++) {
           var part = msg.content[j];
           if (part.type === 'text') {
-            parts.push({ text: part.text });
+            content.push({ type: 'text', text: part.text });
           } else if (part.type === 'image_url') {
             var dataUrl = part.image_url.url;
             var match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
             if (match) {
-              parts.push({ inlineData: { mimeType: match[1], data: match[2] } });
+              content.push({ type: 'image', source: { type: 'base64', media_type: match[1], data: match[2] } });
             }
           }
         }
       }
-      contents.push({ role: 'user', parts: parts });
+      userMessages.push({ role: msg.role, content: content });
     }
   }
 
-  var reqPayload = {
-    contents: contents,
-    generationConfig: { temperature: 0.1 }
-  };
-  if (systemParts.length > 0) {
-    reqPayload.systemInstruction = { parts: systemParts };
-  }
-  if (jsonMode) {
-    reqPayload.generationConfig.responseMimeType = 'application/json';
-  }
-
-  var modelName = model || 'gemini-3.6-flash';
-  var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + modelName + ':generateContent?key=' + apiKey;
+  var modelName = model || 'claude-haiku-4-5-20251001';
+  var reqPayload = { model: modelName, max_tokens: 4096, messages: userMessages };
+  if (systemContent) reqPayload.system = systemContent;
 
   var lastError = null;
-  var isLastErrorRetryable = false;
   var delays = [0, 8000, 20000]; // retry after 0s, 8s, 20s
   for (var attempt = 0; attempt < delays.length; attempt++) {
     if (delays[attempt] > 0) Utilities.sleep(delays[attempt]);
-    var response = UrlFetchApp.fetch(url, {
+    var response = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
       method: 'post',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
       payload: JSON.stringify(reqPayload),
       muteHttpExceptions: true
     });
+    var httpCode = response.getResponseCode();
     var result = JSON.parse(response.getContentText());
     if (result.error) {
-      var msg = result.error.message || '';
-      var isRetryable = msg.indexOf('high demand') !== -1 || msg.indexOf('RESOURCE_EXHAUSTED') !== -1 ||
-                        msg.indexOf('quota') !== -1 || result.error.code === 429 || result.error.code === 503;
+      var isRetryable = httpCode === 529 || httpCode === 429 || result.error.type === 'overloaded_error';
       lastError = isRetryable
-        ? new Error('Gemini error: AI is temporarily busy (high demand). Please try again in a few minutes.')
-        : new Error('Gemini error: ' + msg);
-      isLastErrorRetryable = isRetryable;
+        ? new Error('Claude error: AI is temporarily busy (high demand). Please try again in a few minutes.')
+        : new Error('Claude error: ' + (result.error.message || ''));
       if (isRetryable && attempt < delays.length - 1) continue;
       break;
     }
-    var cand = result.candidates && result.candidates[0];
-    if (!cand || !cand.content || !cand.content.parts) throw new Error('Gemini returned no content');
-    var textPart = null;
-    for (var pi = 0; pi < cand.content.parts.length; pi++) {
-      var p = cand.content.parts[pi];
-      if (p.text && !p.thought) { textPart = p; break; }
-    }
-    if (!textPart) throw new Error('Gemini returned no text in response');
-    return textPart.text;
-  }
-  // Fallback to a lighter model if the primary model was overloaded
-  var FALLBACK_MODEL = 'gemini-2.0-flash-lite';
-  if (lastError && isLastErrorRetryable && modelName !== FALLBACK_MODEL) {
-    var fbUrl = 'https://generativelanguage.googleapis.com/v1beta/models/' + FALLBACK_MODEL + ':generateContent?key=' + apiKey;
-    var fbResp = UrlFetchApp.fetch(fbUrl, {
-      method: 'post',
-      headers: { 'Content-Type': 'application/json' },
-      payload: JSON.stringify(reqPayload),
-      muteHttpExceptions: true
-    });
-    var fbResult = JSON.parse(fbResp.getContentText());
-    if (!fbResult.error) {
-      var fbCand = fbResult.candidates && fbResult.candidates[0];
-      if (fbCand && fbCand.content && fbCand.content.parts) {
-        for (var fpi = 0; fpi < fbCand.content.parts.length; fpi++) {
-          var fp = fbCand.content.parts[fpi];
-          if (fp.text && !fp.thought) return fp.text;
-        }
-      }
-    }
+    if (!result.content || !result.content[0] || !result.content[0].text) throw new Error('Claude returned no content');
+    return result.content[0].text;
   }
   throw lastError;
 }
@@ -2219,11 +2178,11 @@ function handleGenerateSectionFeedback(payload) {
       continue;
     }
 
-    // Generate feedback via Gemini
+    // Generate feedback via Claude
     var feedback = '';
     try {
       var msgs = buildBuddyFeedbackMessages(imageBase64, imageMime);
-      feedback = callGemini(msgs, 'gemini-3.6-flash', null);
+      feedback = callClaude(msgs, 'claude-sonnet-4-6', null);
     } catch(e) {
       errors.push({ teamCode: teamCode, error: e.message });
       continue;

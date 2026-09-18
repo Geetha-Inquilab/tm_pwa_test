@@ -4835,7 +4835,7 @@ async function sbDownloadTeamPDF(teamCode){
       canvas.getContext('2d').drawImage(tmpImg,0,0);
       jpegUrl=canvas.toDataURL('image/jpeg',0.85);
     }catch(e){}
-  } else if(team.photoUrl&&team.photoUrl.startsWith('http')){
+  } else {
     try{
       const s=getSession(), cfgUrl=getCfg().url;
       const r=await fetch(cfgUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
@@ -4954,7 +4954,7 @@ async function sbDownloadAllPDF(){
         canvas.getContext('2d').drawImage(tmpImg,0,0);
         jpegUrl=canvas.toDataURL('image/jpeg',0.85);
       }catch(e){}
-    } else if(team.photoUrl&&team.photoUrl.startsWith('http')){
+    } else {
       try{
         const s=getSession(), cfgUrl=getCfg().url;
         const r=await fetch(cfgUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},

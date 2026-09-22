@@ -966,7 +966,7 @@ function extractStudentDataFromPhoto(photoBase64, photoUrl, payload, targetSS, p
       ]}
     ];
 
-    var rawResult = callClaude(extractPrompt, 'claude-haiku-4-5-20251001', false);
+    var rawResult = callOpenAI(extractPrompt, 'gpt-4o-mini', false);
     var cleaned = rawResult.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     var slBlocks = JSON.parse(cleaned);
     if (!Array.isArray(slBlocks)) throw new Error('AI returned non-array');
@@ -1604,7 +1604,7 @@ function handleExtractTeamData(payload) {
     ];
     var rawResult = null;
     try {
-      rawResult = callClaude(extractPrompt, 'claude-haiku-4-5-20251001', false);
+      rawResult = callOpenAI(extractPrompt, 'gpt-4o-mini', false);
     } catch(e) {
       errors.push('Photo ' + (pi+1) + ' AI error: ' + e.message);
       continue;
@@ -1680,7 +1680,7 @@ function handleProcessInnovation(payload) {
 
   // Generate feedback
   var feedbackMessages = buildBuddyFeedbackMessages(imageBase64, imageMime);
-  var feedback = callClaude(feedbackMessages, 'claude-sonnet-4-6', null);
+  var feedback = callOpenAI(feedbackMessages, 'gpt-4o', null);
 
   // Upload audio to Drive (optional)
   var audioDriveUrl = '';
@@ -1712,69 +1712,38 @@ function handleProcessInnovation(payload) {
   return json({ status: 'ok', feedback: feedback, imageUrl: ideaImageUrl, audioUrl: audioDriveUrl });
 }
 
-// -------- CLAUDE HELPER --------
+// -------- OPENAI HELPER --------
 
-function callClaude(messages, model, jsonMode) {
+function callOpenAI(messages, model, jsonMode) {
   var props = PropertiesService.getScriptProperties();
-  var apiKey = props.getProperty('CLAUDE_API_KEY');
-  if (!apiKey) throw new Error('CLAUDE_API_KEY not set in Script Properties. Go to Extensions > Apps Script > Project Settings > Script Properties and add it.');
+  var apiKey = props.getProperty('OPENAI_API_KEY');
+  if (!apiKey) throw new Error('OPENAI_API_KEY not set in Script Properties. Go to Extensions > Apps Script > Project Settings > Script Properties and add it.');
 
-  var systemContent = null;
-  var userMessages = [];
-
-  for (var i = 0; i < messages.length; i++) {
-    var msg = messages[i];
-    if (msg.role === 'system') {
-      systemContent = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
-    } else {
-      var content;
-      if (typeof msg.content === 'string') {
-        content = msg.content;
-      } else if (Array.isArray(msg.content)) {
-        content = [];
-        for (var j = 0; j < msg.content.length; j++) {
-          var part = msg.content[j];
-          if (part.type === 'text') {
-            content.push({ type: 'text', text: part.text });
-          } else if (part.type === 'image_url') {
-            var dataUrl = part.image_url.url;
-            var match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-            if (match) {
-              content.push({ type: 'image', source: { type: 'base64', media_type: match[1], data: match[2] } });
-            }
-          }
-        }
-      }
-      userMessages.push({ role: msg.role, content: content });
-    }
-  }
-
-  var modelName = model || 'claude-haiku-4-5-20251001';
-  var reqPayload = { model: modelName, max_tokens: 4096, messages: userMessages };
-  if (systemContent) reqPayload.system = systemContent;
+  var modelName = model || 'gpt-4o-mini';
+  var reqPayload = { model: modelName, max_tokens: 4096, messages: messages };
 
   var lastError = null;
   var delays = [0, 8000, 20000]; // retry after 0s, 8s, 20s
   for (var attempt = 0; attempt < delays.length; attempt++) {
     if (delays[attempt] > 0) Utilities.sleep(delays[attempt]);
-    var response = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+    var response = UrlFetchApp.fetch('https://api.openai.com/v1/chat/completions', {
       method: 'post',
-      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      headers: { 'Authorization': 'Bearer ' + apiKey, 'content-type': 'application/json' },
       payload: JSON.stringify(reqPayload),
       muteHttpExceptions: true
     });
     var httpCode = response.getResponseCode();
     var result = JSON.parse(response.getContentText());
     if (result.error) {
-      var isRetryable = httpCode === 529 || httpCode === 429 || result.error.type === 'overloaded_error';
+      var isRetryable = httpCode === 429 || httpCode === 503;
       lastError = isRetryable
-        ? new Error('Claude error: AI is temporarily busy (high demand). Please try again in a few minutes.')
-        : new Error('Claude error: ' + (result.error.message || ''));
+        ? new Error('OpenAI error: AI is temporarily busy (high demand). Please try again in a few minutes.')
+        : new Error('OpenAI error: ' + (result.error.message || ''));
       if (isRetryable && attempt < delays.length - 1) continue;
       break;
     }
-    if (!result.content || !result.content[0] || !result.content[0].text) throw new Error('Claude returned no content');
-    return result.content[0].text;
+    if (!result.choices || !result.choices[0] || !result.choices[0].message || !result.choices[0].message.content) throw new Error('OpenAI returned no content');
+    return result.choices[0].message.content;
   }
   throw lastError;
 }
@@ -2182,7 +2151,7 @@ function handleGenerateSectionFeedback(payload) {
     var feedback = '';
     try {
       var msgs = buildBuddyFeedbackMessages(imageBase64, imageMime);
-      feedback = callClaude(msgs, 'claude-sonnet-4-6', null);
+      feedback = callOpenAI(msgs, 'gpt-4o', null);
     } catch(e) {
       errors.push({ teamCode: teamCode, error: e.message });
       continue;

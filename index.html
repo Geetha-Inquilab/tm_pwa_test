@@ -5595,7 +5595,7 @@ async function soSelectUnit(n){
     const j=await fetchSessionObs(url,soState.schoolCode,soState.level,s.token);
     if(j.status==='ok'){
       soState.submittedSessions=j.submitted||[];
-      soState.iifSubmittedSessions=j.iifSubmitted||[];
+      soState.iifSubmittedSessions=j.iifSubmittedByMe||[];
     }
   }catch(e){ soState.submittedSessions=[]; }
   renderSOSessions();

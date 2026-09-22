@@ -2389,7 +2389,8 @@ var SO_COLUMNS = [
   'Activity 5 Q1','Activity 5 Q2','Activity 5 Q3','Activity 5 Q4',
   'Q19 SL Language','Q20 SL Clarity',
   'Q21 MMS Kit','Q21 MMS Kit Feedback',
-  'Q22 Standout','Q23 Experience'
+  'Q22 Standout','Q23 Experience',
+  'Observer Email'
 ];
 
 function updatePartnerSessionObsSheetId(ss, partnerName, sheetId) {
@@ -2434,11 +2435,19 @@ function getOrCreateSessionObsTab(soSheet, level) {
     tab.appendRow(SO_COLUMNS);
     tab.getRange(1, 1, 1, SO_COLUMNS.length).setFontWeight('bold').setBackground('#0D3B4A').setFontColor('#FFFFFF');
     tab.setFrozenRows(1);
+  } else {
+    var lastCol = tab.getLastColumn();
+    if (lastCol < SO_COLUMNS.length) {
+      var missing = SO_COLUMNS.slice(lastCol);
+      var missingRange = tab.getRange(1, lastCol + 1, 1, missing.length);
+      missingRange.setValues([missing]);
+      missingRange.setFontWeight('bold').setBackground('#0D3B4A').setFontColor('#FFFFFF');
+    }
   }
   return tab;
 }
 
-function buildRowSessionObs(payload) {
+function buildRowSessionObs(payload, observerEmail) {
   var h = payload.header || {};
   var c = payload.common || {};
   var t = payload.teacher || {};
@@ -2511,7 +2520,8 @@ function buildRowSessionObs(payload) {
     'Q21 MMS Kit': iif.q20 || '',
     'Q21 MMS Kit Feedback': iif.q20Feedback || '',
     'Q22 Standout': iif.q21 || '',
-    'Q23 Experience': iif.q22 || ''
+    'Q23 Experience': iif.q22 || '',
+    'Observer Email': observerEmail || ''
   };
   return SO_COLUMNS.map(function(col) { return row[col] !== undefined ? row[col] : ''; });
 }
@@ -2546,7 +2556,36 @@ function handleSessionObsSubmit(payload) {
 
   var soSheet = getOrCreateSessionObsSheet(partner, ss);
   var tab = getOrCreateSessionObsTab(soSheet, level);
-  var row = buildRowSessionObs(payload);
+
+  var observerEmail = ((getSessionUser(payload.token) || {}).email || '').toLowerCase().trim();
+  var obsRole = String((payload.header || {}).role || '').trim();
+
+  // IIF Observers may each submit their own observation for the same session;
+  // only block a second submission from the SAME observer for the SAME session.
+  if (obsRole === 'IIF Observer' && observerEmail) {
+    var dupSchoolCode = ((payload.header || {}).schoolCode || '').trim().toUpperCase();
+    var dupData = tab.getDataRange().getValues();
+    if (dupData.length >= 2) {
+      var dupHeader = dupData[0];
+      var dScIdx = dupHeader.indexOf('School Code');
+      var dRoleIdx = dupHeader.indexOf('Role');
+      var dSessIdx = dupHeader.indexOf('Session');
+      var dStatusIdx = dupHeader.indexOf('Status');
+      var dEmailIdx = dupHeader.indexOf('Observer Email');
+      for (var di = 1; di < dupData.length; di++) {
+        if (dScIdx >= 0 && String(dupData[di][dScIdx] || '').trim().toUpperCase() !== dupSchoolCode) continue;
+        if (dSessIdx >= 0 && String(dupData[di][dSessIdx] || '').trim() !== session) continue;
+        if (dRoleIdx >= 0 && String(dupData[di][dRoleIdx] || '').trim() !== 'IIF Observer') continue;
+        if (dStatusIdx >= 0 && String(dupData[di][dStatusIdx] || '').toLowerCase() === 'superseded') continue;
+        var dExistingEmail = dEmailIdx >= 0 ? String(dupData[di][dEmailIdx] || '').toLowerCase().trim() : '';
+        if (dExistingEmail && dExistingEmail === observerEmail) {
+          return json({ status: 'duplicate', message: 'You have already submitted an observation for this session.' });
+        }
+      }
+    }
+  }
+
+  var row = buildRowSessionObs(payload, observerEmail);
   tab.appendRow(row);
 
   // Upload photos — structured folder hierarchy
@@ -2633,6 +2672,8 @@ function handleGetSessionObsDetail(p) {
   var sessionNum = String(p.sessionNum || '').trim();
   if (!schoolCode || !level || !sessionNum) return json({ status:'error', message:'schoolCode, level and sessionNum required' });
 
+  var requesterEmail = ((getSessionUser(p.token) || {}).email || '').toLowerCase().trim();
+
   var ss = getSheet();
   var partnerName = getPartnerForSchool(ss, schoolCode);
   if (!partnerName) return json({ status:'error', message:'Partner not found' });
@@ -2649,18 +2690,24 @@ function handleGetSessionObsDetail(p) {
   var roleIdx    = header.indexOf('Role');
   var statusIdx  = header.indexOf('Status');
   var sessionIdx = header.indexOf('Session');
+  var emailIdx   = header.indexOf('Observer Email');
 
-  var teacherRow = null, iifRow = null;
+  var teacherRow = null, iifRowFirst = null, iifRowByEmail = null;
   for (var i = 1; i < data.length; i++) {
-    if (teacherRow && iifRow) break;
     var rowSC = String(data[i][scIdx] || '').trim().toUpperCase();
     var rowSt = statusIdx >= 0 ? String(data[i][statusIdx] || '').toLowerCase() : '';
     if (rowSC !== schoolCode || rowSt === 'superseded') continue;
     if (sessionIdx >= 0 && String(data[i][sessionIdx] || '').trim() !== sessionNum) continue;
     var rowRole = String(data[i][roleIdx] || '').trim();
-    if (rowRole === 'Teacher'      && !teacherRow) teacherRow = data[i];
-    if (rowRole === 'IIF Observer' && !iifRow)     iifRow     = data[i];
+    if (rowRole === 'Teacher' && !teacherRow) teacherRow = data[i];
+    if (rowRole === 'IIF Observer') {
+      if (!iifRowFirst) iifRowFirst = data[i];
+      var rowEmail = emailIdx >= 0 ? String(data[i][emailIdx] || '').toLowerCase().trim() : '';
+      if (!iifRowByEmail && requesterEmail && rowEmail && rowEmail === requesterEmail) iifRowByEmail = data[i];
+    }
+    if (teacherRow && iifRowByEmail) break;
   }
+  var iifRow = iifRowByEmail || iifRowFirst;
   if (!teacherRow && !iifRow) return json({ status:'error', message:'Submission not found' });
   var toObj = function(row) {
     if (!row) return null;
@@ -2676,44 +2723,69 @@ function handleGetSessionObs(p) {
   var level      = String(p.level || '').trim();
   if (!schoolCode || !level) return json({ status: 'error', message: 'schoolCode and level required' });
 
+  var requesterEmail = ((getSessionUser(p.token) || {}).email || '').toLowerCase().trim();
+
   var cacheKey = 'so_' + schoolCode + '_L' + level;
   var cached = getCached(cacheKey);
-  if (cached) return json(cached);
+  var submitted, iifSubmitted, iifByObserver;
 
-  var ss = getSheet();
-  var partnerName = getPartnerForSchool(ss, schoolCode);
-  if (!partnerName) return json({ status: 'ok', submitted: [], iifSubmitted: [] });
+  if (cached) {
+    submitted     = cached.submitted || [];
+    iifSubmitted  = cached.iifSubmitted || [];
+    iifByObserver = cached.iifByObserver || {};
+  } else {
+    var ss = getSheet();
+    var partnerName = getPartnerForSchool(ss, schoolCode);
+    if (!partnerName) return json({ status: 'ok', submitted: [], iifSubmitted: [], iifSubmittedByMe: [] });
 
-  var soSheet = getOrCreateSessionObsSheet(partnerName, ss);
-  var teacherSessions = {};
-  var iifSessions = {};
+    var soSheet = getOrCreateSessionObsSheet(partnerName, ss);
+    var teacherSessions = {};
+    var iifSessions = {};
+    iifByObserver = {};
 
-  var tab = soSheet.getSheetByName('L' + level);
-  if (tab) {
-    var data = tab.getDataRange().getValues();
-    if (data.length >= 2) {
-      var header     = data[0];
-      var scIdx      = header.indexOf('School Code');
-      var roleIdx    = header.indexOf('Role');
-      var statusIdx  = header.indexOf('Status');
-      var sessionIdx = header.indexOf('Session');
-      for (var i = 1; i < data.length; i++) {
-        var rowSC = String(data[i][scIdx] || '').trim().toUpperCase();
-        if (rowSC !== schoolCode) continue;
-        var rowSt = statusIdx >= 0 ? String(data[i][statusIdx] || '').toLowerCase() : '';
-        if (rowSt === 'superseded') continue;
-        var rowSess = sessionIdx >= 0 ? parseInt(String(data[i][sessionIdx] || ''), 10) : 0;
-        if (!rowSess) continue;
-        var rowRole = String(data[i][roleIdx] || '').trim();
-        if (rowRole === 'Teacher')      teacherSessions[rowSess] = true;
-        if (rowRole === 'IIF Observer') iifSessions[rowSess]     = true;
+    var tab = soSheet.getSheetByName('L' + level);
+    if (tab) {
+      var data = tab.getDataRange().getValues();
+      if (data.length >= 2) {
+        var header     = data[0];
+        var scIdx      = header.indexOf('School Code');
+        var roleIdx    = header.indexOf('Role');
+        var statusIdx  = header.indexOf('Status');
+        var sessionIdx = header.indexOf('Session');
+        var emailIdx   = header.indexOf('Observer Email');
+        for (var i = 1; i < data.length; i++) {
+          var rowSC = String(data[i][scIdx] || '').trim().toUpperCase();
+          if (rowSC !== schoolCode) continue;
+          var rowSt = statusIdx >= 0 ? String(data[i][statusIdx] || '').toLowerCase() : '';
+          if (rowSt === 'superseded') continue;
+          var rowSess = sessionIdx >= 0 ? parseInt(String(data[i][sessionIdx] || ''), 10) : 0;
+          if (!rowSess) continue;
+          var rowRole = String(data[i][roleIdx] || '').trim();
+          if (rowRole === 'Teacher') teacherSessions[rowSess] = true;
+          if (rowRole === 'IIF Observer') {
+            iifSessions[rowSess] = true;
+            var rowEmail = emailIdx >= 0 ? String(data[i][emailIdx] || '').toLowerCase().trim() : '';
+            if (rowEmail) {
+              if (!iifByObserver[rowEmail]) iifByObserver[rowEmail] = {};
+              iifByObserver[rowEmail][rowSess] = true;
+            }
+          }
+        }
       }
     }
+
+    submitted    = Object.keys(teacherSessions).map(Number).sort(function(a,b){return a-b;});
+    iifSubmitted = Object.keys(iifSessions).map(Number).sort(function(a,b){return a-b;});
+    var iifByObserverArrays = {};
+    Object.keys(iifByObserver).forEach(function(email) {
+      iifByObserverArrays[email] = Object.keys(iifByObserver[email]).map(Number).sort(function(a,b){return a-b;});
+    });
+    iifByObserver = iifByObserverArrays;
+
+    var result = { status: 'ok', submitted: submitted, iifSubmitted: iifSubmitted, iifByObserver: iifByObserver };
+    setCached(cacheKey, result, 300);
   }
 
-  var submitted    = Object.keys(teacherSessions).map(Number).sort(function(a,b){return a-b;});
-  var iifSubmitted = Object.keys(iifSessions).map(Number).sort(function(a,b){return a-b;});
-  var result = { status: 'ok', submitted: submitted, iifSubmitted: iifSubmitted };
-  setCached(cacheKey, result, 300);
-  return json(result);
+  var iifSubmittedByMe = (requesterEmail && iifByObserver[requesterEmail]) || [];
+  return json({ status: 'ok', submitted: submitted, iifSubmitted: iifSubmitted, iifSubmittedByMe: iifSubmittedByMe });
 }

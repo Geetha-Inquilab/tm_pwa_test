@@ -2661,7 +2661,9 @@ function handleGetSessionObsDetail(p) {
   var sessionIdx = header.indexOf('Session');
   var emailIdx   = header.indexOf('Observer Email');
 
+
   var teacherRow = null, iifRowsByEmail = [], iifRowByEmail = null;
+
   for (var i = 1; i < data.length; i++) {
     var rowSC = String(data[i][scIdx] || '').trim().toUpperCase();
     var rowSt = statusIdx >= 0 ? String(data[i][statusIdx] || '').toLowerCase() : '';

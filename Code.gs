@@ -143,6 +143,7 @@ function doGet(e) {
   if (action === 'getGradeTeams')            return handleGetGradeTeams(p);
   if (action === 'getSessionObs')            return handleGetSessionObs(p);
   if (action === 'getSessionObsDetail')      return handleGetSessionObsDetail(p);
+  if (action === 'schoolDashSummary')        return handleSchoolDashSummary(p);
 
   return json({ status: 'ok', message: 'TM form backend live' });
 }
@@ -155,36 +156,63 @@ function validateRequest(payload) {
   return validateToken(payload.token);
 }
 
-function validateToken(token) {
-  if (!token) return false;
-  var ss = getSheet();
-  var sheet = ss.getSheetByName('Sessions');
-  if (!sheet) return false;
-  var data = sheet.getDataRange().getValues();
-  var now = new Date();
-  for (var i = 1; i < data.length; i++) {
-    if (String(data[i][0]) === String(token)) {
-      var expires = new Date(data[i][2]);
-      return expires > now;
-    }
-  }
-  return false;
-}
-
-function getSessionUser(token) {
+// Looks up a session token. Result is cached for 6 h so most requests skip
+// opening the master sheet and scanning the whole Sessions tab.
+// Returns { email, expires } or null if the token is unknown.
+function lookupSession(token) {
   if (!token) return null;
+  var key = 'tok_' + token;
+  var cached = getCached(key);
+  if (cached) return cached;
   var ss = getSheet();
   var sheet = ss.getSheetByName('Sessions');
   if (!sheet) return null;
   var data = sheet.getDataRange().getValues();
-  var now = new Date();
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][0]) === String(token)) {
-      var expires = new Date(data[i][2]);
-      if (expires > now) return { email: data[i][1] };
+      var entry = { email: data[i][1], expires: new Date(data[i][2]).toISOString() };
+      setCached(key, entry, 21600);
+      return entry;
     }
   }
   return null;
+}
+
+function validateToken(token) {
+  var entry = lookupSession(token);
+  return !!entry && new Date(entry.expires) > new Date();
+}
+
+function getSessionUser(token) {
+  var entry = lookupSession(token);
+  if (entry && new Date(entry.expires) > new Date()) return { email: entry.email };
+  return null;
+}
+
+// Removes expired rows from the Sessions tab so it stays small.
+// Schedule it once from the Apps Script editor: Triggers → Add trigger →
+// cleanupExpiredSessions, time-driven, day timer.
+function cleanupExpiredSessions() {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) return;
+  try {
+    var sheet = getSheet().getSheetByName('Sessions');
+    if (!sheet) return;
+    var data = sheet.getDataRange().getValues();
+    if (data.length < 2) return;
+    var now = new Date();
+    var keep = [data[0]];
+    for (var i = 1; i < data.length; i++) {
+      if (!data[i][0]) continue;
+      if (new Date(data[i][2]) > now) keep.push(data[i]);
+    }
+    if (keep.length === data.length) return;
+    sheet.getRange(1, 1, data.length, data[0].length).clearContent();
+    sheet.getRange(1, 1, keep.length, data[0].length).setValues(keep);
+    Logger.log('Sessions cleanup: removed ' + (data.length - keep.length) + ' row(s), kept ' + (keep.length - 1));
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 // -------- LOGIN --------
@@ -288,6 +316,8 @@ function handleSaveUser(payload) {
 // -------- GET SCHOOLS --------
 
 function handleGetSchools() {
+  var cached = getCached('schoolsList');
+  if (cached) return json(cached);
   var ss = getSheet();
   var sheet = ss.getSheetByName('Schools_List');
   if (!sheet) return json({ status: 'ok', schools: [] });
@@ -318,7 +348,9 @@ function handleGetSchools() {
       schoolTrack: trackIdx >= 0 ? String(data[i][trackIdx] || '').trim() : ''
     });
   }
-  return json({ status: 'ok', schools: schools });
+  var result = { status: 'ok', schools: schools };
+  setCached('schoolsList', result, 600);
+  return json(result);
 }
 
 // -------- SCHOOL DATA (dashboard) --------
@@ -390,6 +422,37 @@ function handleSchoolData(p) {
   return json(response);
 }
 
+// -------- SCHOOL DASHBOARD SUMMARY (one round trip) --------
+// Bundles the responses the School Dashboard summary screen needs so the
+// browser makes one request instead of two rounds. Each part is produced by
+// the existing handler, so its shape matches the individual action exactly.
+
+function unwrapHandler(fn, p) {
+  return JSON.parse(fn(p).getContent());
+}
+
+function handleSchoolDashSummary(p) {
+  var schoolCode = (p.schoolCode || '').trim().toUpperCase();
+  if (!schoolCode) return json({ status: 'error', message: 'schoolCode required' });
+  var base = { schoolCode: schoolCode, token: p.token };
+
+  var out = { status: 'ok' };
+  out.form3 = unwrapHandler(handleAllForm3Submissions, base);
+  out.gradeConfig = unwrapHandler(handleGetGradeConfig, base);
+  if (p.includeSchoolData === '1') out.schoolData = unwrapHandler(handleSchoolData, base);
+
+  // Session obs for every level that appears in the grade config; the
+  // browser picks the levels that apply to this school's grades.
+  out.sessionObs = {};
+  var levels = {};
+  (out.gradeConfig.configs || []).forEach(function(c) { if (c.level) levels[c.level] = true; });
+  Object.keys(levels).forEach(function(level) {
+    var params = { schoolCode: schoolCode, level: level, token: p.token };
+    out.sessionObs[level] = unwrapHandler(handleGetSessionObs, params);
+  });
+  return json(out);
+}
+
 // -------- ALL SCHOOL STATUS (IIF dashboard / tracker) --------
 
 function handleAllSchoolStatus(p) {
@@ -451,7 +514,7 @@ function handleAllSchoolStatus(p) {
     schools.push(entry);
   }
   var result = { status: 'ok', schools: schools };
-  setCached('allSchoolStatus', result, 300);
+  setCached('allSchoolStatus', result, 600);
   return json(result);
 }
 

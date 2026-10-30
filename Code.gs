@@ -318,11 +318,19 @@ function handleSaveUser(payload) {
 function handleGetSchools() {
   var cached = getCached('schoolsList');
   if (cached) return json(cached);
-  var ss = getSheet();
+  var schools = readSchoolsList(getSheet());
+  var result = { status: 'ok', schools: schools };
+  if (schools.length) setCached('schoolsList', result, 600);
+  return json(result);
+}
+
+// Reads Schools_List into [{name, code, partner, schoolTrack}], finding the
+// columns by header name so the sheet's column order doesn't matter.
+function readSchoolsList(ss) {
   var sheet = ss.getSheetByName('Schools_List');
-  if (!sheet) return json({ status: 'ok', schools: [] });
+  if (!sheet) return [];
   var data = sheet.getDataRange().getValues();
-  if (data.length < 2) return json({ status: 'ok', schools: [] });
+  if (data.length < 2) return [];
 
   // Find columns by header name (case-insensitive, also handles "Partner Name", "School Name", etc.)
   var header = data[0].map(function(h){ return String(h).toLowerCase().trim(); });
@@ -348,9 +356,7 @@ function handleGetSchools() {
       schoolTrack: trackIdx >= 0 ? String(data[i][trackIdx] || '').trim() : ''
     });
   }
-  var result = { status: 'ok', schools: schools };
-  setCached('schoolsList', result, 600);
-  return json(result);
+  return schools;
 }
 
 // -------- SCHOOL DATA (dashboard) --------
@@ -455,14 +461,17 @@ function handleSchoolDashSummary(p) {
 
 // -------- ALL SCHOOL STATUS (IIF dashboard / tracker) --------
 
+// v2: entries built before the Schools_List column fix had name/code/partner
+// shifted; a new key keeps those stale results from being served.
+var ALL_SCHOOL_STATUS_KEY = 'allSchoolStatus_v2';
+
 function handleAllSchoolStatus(p) {
-  var cached = getCached('allSchoolStatus');
+  var cached = getCached(ALL_SCHOOL_STATUS_KEY);
   if (cached) return json(cached);
 
   var ss = getSheet();
-  var schoolsSheet = ss.getSheetByName('Schools_List');
-  if (!schoolsSheet) return json({ status: 'ok', schools: [] });
-  var schoolData = schoolsSheet.getDataRange().getValues();
+  var schoolList = readSchoolsList(ss);
+  if (!schoolList.length) return json({ status: 'ok', schools: [] });
 
   var formKeys = ['form1_school_orientation','form2_schools_contact','form3_student_data','form4_sl_selection','form5_kits_handover'];
   var submitted = {};
@@ -498,13 +507,12 @@ function handleAllSchoolStatus(p) {
   });
 
   var schools = [];
-  for (var i = 1; i < schoolData.length; i++) {
-    if (!schoolData[i][0]) continue;
-    var code = String(schoolData[i][1] || '').trim().toUpperCase();
+  schoolList.forEach(function(s) {
+    var code = s.code.toUpperCase();
     var entry = {
-      name: schoolData[i][0],
+      name: s.name,
       code: code,
-      partner: schoolData[i][2] || ''
+      partner: s.partner
     };
     formKeys.forEach(function(fk, idx) {
       var key = 'form' + (idx + 1);
@@ -512,9 +520,9 @@ function handleAllSchoolStatus(p) {
       if (submitted[fk][code]) entry[key + 'Date'] = submitted[fk][code];
     });
     schools.push(entry);
-  }
+  });
   var result = { status: 'ok', schools: schools };
-  setCached('allSchoolStatus', result, 600);
+  setCached(ALL_SCHOOL_STATUS_KEY, result, 600);
   return json(result);
 }
 
@@ -609,7 +617,7 @@ function handleFormSubmit(payload) {
   uploadPhotos(payload, ss, partner, partnerSS);
   var _sc = ((payload.header || {}).schoolCode || '').trim().toUpperCase();
   var _partnerKey = partner || 'master';
-  var keysToInvalidate = ['allSchoolStatus'];
+  var keysToInvalidate = [ALL_SCHOOL_STATUS_KEY];
   if (_sc) keysToInvalidate.push('sd_' + _sc);
   keysToInvalidate.push('tab_' + _partnerKey + '_' + payload.formId);
   clearCachedKeys(keysToInvalidate);
@@ -2711,7 +2719,7 @@ function handleSessionObsSubmit(payload) {
 
   var _scSO = ((payload.header || {}).schoolCode || '').trim().toUpperCase();
   var _lvSO = String((payload.header || {}).level || '');
-  var keysToInvalidate = ['allSchoolStatus'].concat(_scSO ? ['sd_' + _scSO] : []);
+  var keysToInvalidate = [ALL_SCHOOL_STATUS_KEY].concat(_scSO ? ['sd_' + _scSO] : []);
   if (_scSO && _lvSO) keysToInvalidate.push('so_' + _scSO + '_L' + _lvSO);
   clearCachedKeys(keysToInvalidate);
   return json({ status: 'success', submissionId: sid });

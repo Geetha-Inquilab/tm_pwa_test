@@ -3894,8 +3894,9 @@ function buddyPDFDrawTop(doc, details, photoDataUri, noPhotoText){
     dy+=Math.max(vLines.length*4.8,6);
   });
 
-  // Top block height follows the details text (min 45mm, max 78mm)
-  const topH=Math.min(78,Math.max(45,dy-topY));
+  // Top block height follows the details text (min 70mm so a 4:3 photo fills the
+  // 92mm-wide box; max 78mm). The questions table still ends well above the page bottom.
+  const topH=Math.min(78,Math.max(70,dy-topY));
 
   // Idea Image (right column)
   doc.setDrawColor(200,210,215); doc.rect(imgX,topY,imgW,topH);
